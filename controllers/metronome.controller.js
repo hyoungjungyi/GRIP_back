@@ -5,7 +5,7 @@ const { ChromaticPractice } = require('../models');
 
 //바로 직전 프리셋 반환
 exports.getLastChromaticPractice = async (req, res) => {
-  const userId = req.query.user_id || req.query.userId;
+  const userId = req.user?.id;
 
   if (!userId) {
     return res.status(400).json({ message: 'user_id 쿼리 파라미터가 필요합니다.' });
@@ -35,7 +35,9 @@ exports.getLastChromaticPractice = async (req, res) => {
 
 //크로매틱 연습 기록 db에 저장
 exports.saveTotalPracticeTime = async (req, res) => {
-  const { userId, date, totalPracticeTime, details } = req.body;
+
+  const { date, totalPracticeTime, details } = req.body;
+  const userId = req.user.id;
 
   if (!userId || !date || totalPracticeTime == null || !Array.isArray(details)) {
     return res.status(400).json({ message: 'userId, date, totalPracticeTime, details(배열) 모두 필요합니다.' });
@@ -47,6 +49,7 @@ exports.saveTotalPracticeTime = async (req, res) => {
     for (const entry of details) {
       latestByFingering[entry.fingering] = entry; // 덮어쓰기 → 마지막 항목 유지
     }
+    console.log("1");
 
     // 운지법별로 DB에 upsert (update or insert)
     for (const fingering in latestByFingering) {
@@ -56,6 +59,7 @@ exports.saveTotalPracticeTime = async (req, res) => {
       const existing = await ChromaticPractice.findOne({
         where: { userId, date, fingering }
       });
+      console.log("2");
 
       if (existing) {
         await existing.update({
@@ -70,6 +74,7 @@ exports.saveTotalPracticeTime = async (req, res) => {
           practiceTime: record.practiceTime,
           bpm: record.bpm,
         });
+        console.log("3");
       }
     }
 
@@ -80,7 +85,8 @@ exports.saveTotalPracticeTime = async (req, res) => {
     });
   } catch (error) {
     console.error('DB 저장 오류:', error);
-    return res.status(500).json({ message: '서버 에러' });
+    console.error('❌ 전체 오류:', error);
+    return res.status(500).json({ message: '서버 에러',error: error.message, });
   }
 };
 

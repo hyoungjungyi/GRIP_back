@@ -5,6 +5,7 @@ const { Op } = require('sequelize');
 exports.deleteChromaticPractice = async (req, res) => {
   const id = req.params.id; // URL 파라미터에서 삭제할 id 추출
 
+
   if (!id) {
     return res.status(400).json({ message: '삭제할 항목 ID가 필요합니다.' });
   }
@@ -94,7 +95,7 @@ exports.getTodayPractice = async (req, res) => {
 
 //날짜별 연습 기록 불러옴 
 exports.getPracticeHistoryByDate = async (req, res) => {
-  const userId = req.query.user_id;
+  const userId = req.user?.id;
   const date = req.query.date;
 
   if (!userId || !date) {

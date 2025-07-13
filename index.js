@@ -10,7 +10,7 @@ const { swaggerUi, specs } = require('./routes/swagger');
 
 const app = express();
 app.use(cors({
-    origin:'http://143.248.184.18:5173',
+    origin:true,
     credentials:true,
 }));
 app.use(express.json());

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const songsController = require('../controllers/songs.controller');
+const authenticateToken = require('../middlewares/authMiddleware');
 
 /**
  * @swagger
@@ -41,7 +42,7 @@ const songsController = require('../controllers/songs.controller');
  *       500:
  *         description: 서버 오류
  */
-router.post('/tab-generator', songsController.generateTabFromAudio);
+router.post('/tab-generator',  songsController.generateTabFromAudio);
 /**
  * @swagger
  * /api/songs/sheets/all-lists:
@@ -107,7 +108,7 @@ router.post('/tab-generator', songsController.generateTabFromAudio);
  *         description: 서버 오류
  */
 
-router.get('/songs/all-lists', songsController.getAllSongLists);
+router.get('/all-lists', authenticateToken, songsController.getAllSongLists);
 /**
  * @swagger
  * /api/songs/{id}:
@@ -139,7 +140,8 @@ router.get('/songs/all-lists', songsController.getAllSongLists);
  *       500:
  *         description: 서버 오류
  */
-router.get('/sheets/:id', songsController.getSheetImage);
+router.get('/sheets/:id',authenticateToken, songsController.getSheetImage);
+
 
 module.exports = router;
 

@@ -3,7 +3,7 @@ const { Op } = require('sequelize');
 
 //영상만 다 불러오기
 exports.getVideoFiles = async (req, res) => {
-  const userId = req.query.user_id;
+    const userId = req.user?.id;
 
   if (!userId) return res.status(400).json({ message: 'user_id가 필요합니다.' });
 
@@ -32,7 +32,7 @@ exports.getVideoFiles = async (req, res) => {
 
 //노래별로 영상과 녹음 다 불러오기
 exports.getFilesBySong = async (req, res) => {
-  const userId = req.query.user_id;
+  const userId = req.user?.id;
   const songId = req.query.song_id;
 
   if (!userId || !songId) {

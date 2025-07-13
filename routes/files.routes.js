@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const filesController = require('../controllers/files.controller');
+const authenticateToken = require('../middlewares/authMiddleware');
 /**
  * @swagger
  * /api/files/videos:
@@ -34,7 +35,7 @@ const filesController = require('../controllers/files.controller');
  *       500:
  *         description: 서버 오류
  */
-router.get('/files/videos', filesController.getVideoFiles);
+router.get('/videos', authenticateToken,filesController.getVideoFiles);
 /**
  * @swagger
  * /api/files/by-song:
@@ -76,6 +77,6 @@ router.get('/files/videos', filesController.getVideoFiles);
  *         description: 서버 오류
  */
 
-router.get('/files/by-song', filesController.getFilesBySong);
+router.get('/by-song', authenticateToken,filesController.getFilesBySong);
 
 module.exports = router;

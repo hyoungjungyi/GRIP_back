@@ -1,9 +1,10 @@
-const { Song, PracticeRecord } = require('../models');
+const { Song, PracticeRecord , SavedSong} = require('../models');
 const {Op, Sequelize} = require('sequelize');
 
 //ai 생성하기
 exports.generateTabFromAudio = async (req, res) => {
   const { audio_url } = req.body;
+  
 
   if (!audio_url) {
     return res.status(400).json({ message: 'audio_url이 필요합니다.' });
@@ -37,7 +38,7 @@ exports.generateTabFromAudio = async (req, res) => {
 
 //노래 띄우기
 exports.getAllSongLists = async (req, res) => {
-  const userId = req.query.user_id;
+  const userId = req.user?.id;
 
   if (!userId) {
     return res.status(400).json({ message: 'user_id가 필요합니다' });

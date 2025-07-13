@@ -2,6 +2,7 @@ const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 require('dotenv').config();
+const axios = require('axios');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const SECRET_KEY = process.env.JWT_SECRET;
@@ -38,7 +39,7 @@ exports.googleLogin = async (req, res) => {
         console.log("Existing user logged in:", user.toJSON());
     }
 
-    const accessToken = jwt.sign({ id: user.id, username: user.username }, SECRET_KEY, { expiresIn: '1h' });
+    const accessToken = jwt.sign({ id: user.id, gogleId: user.googleId, username: user.username }, SECRET_KEY, { expiresIn: '1h' });
     const refreshToken = jwt.sign({ id: user.id }, REFRESH_SECRET_KEY, { expiresIn: '7d' });
 
     refreshTokens.add(refreshToken);

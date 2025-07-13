@@ -30,7 +30,6 @@ const authenticateToken = require('../middlewares/authMiddleware')
  */
 router.delete('/chromatic/:id', authenticateToken , practiceController.deleteChromaticPractice);
 
-module.exports = router;
 
 
 /**
@@ -80,7 +79,7 @@ module.exports = router;
  *       500:
  *         description: 서버 오류
  */
-router.get('/practice/today', practiceController.getTodayPractice);
+router.get('/today', authenticateToken, practiceController.getTodayPractice);
 
 /**
  * @swagger
@@ -133,7 +132,7 @@ router.get('/practice/today', practiceController.getTodayPractice);
  *       500:
  *         description: 서버 오류
  */
-router.get('/practice/history', practiceController.getPracticeHistoryByDate);
+router.get('/history',authenticateToken, practiceController.getPracticeHistoryByDate);
 
 /**
  * @swagger
@@ -164,7 +163,7 @@ router.get('/practice/history', practiceController.getPracticeHistoryByDate);
  *                 has_chromatic_today:
  *                   type: boolean
  */
-router.get('/practice/goal', practiceController.getUserGoalInfo);
+router.get('/goal', authenticateToken,practiceController.getUserGoalInfo);
 
 /**
  * @swagger
@@ -192,7 +191,7 @@ router.get('/practice/goal', practiceController.getUserGoalInfo);
  *       500:
  *         description: 서버 오류
  */
-router.post('/achieve/check', practiceController.checkDailyAchievement);
+router.post('/achieve/check', authenticateToken,practiceController.checkDailyAchievement);
 
 /**
  * @swagger
@@ -224,7 +223,7 @@ router.post('/achieve/check', practiceController.checkDailyAchievement);
  *       500:
  *         description: 서버 오류
  */
-router.get('/achieve/monthly', practiceController.getMonthlyAchievements);
+router.get('/achieve/monthly',authenticateToken, practiceController.getMonthlyAchievements);
 
 
 

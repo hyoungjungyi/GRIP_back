@@ -26,7 +26,7 @@ const authenticateToken = require('../middlewares/authMiddleware')
  *       404:
  *         description: 해당 유저의 기록 없음
  */
-router.get('/last', metronomeController.getLastChromaticPractice);
+router.get('/last',authenticateToken, metronomeController.getLastChromaticPractice);
 /**
  * @swagger
  * /api/metronome/chromatic/total:
@@ -68,7 +68,7 @@ router.get('/last', metronomeController.getLastChromaticPractice);
  *       500:
  *         description: 서버 오류
  */
-router.post('/chromatic/total', metronomeController.saveTotalPracticeTime);
+router.post('/chromatic/total', authenticateToken, metronomeController.saveTotalPracticeTime);
 module.exports = router;
 
 
