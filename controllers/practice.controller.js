@@ -1,6 +1,37 @@
 const { PracticeRecord, File, ChromaticPractice, User } = require('../models');
 const { Op } = require('sequelize');
 
+//연습기록 삭제 
+exports.deleteChromaticPractice = async (req, res) => {
+  const id = req.params.id; // URL 파라미터에서 삭제할 id 추출
+
+  if (!id) {
+    return res.status(400).json({ message: '삭제할 항목 ID가 필요합니다.' });
+  }
+
+  try {
+    const record = await ChromaticPractice.findByPk(id);
+
+    if (!record) {
+      return res.status(404).json({ message: '삭제할 항목을 찾을 수 없습니다.' });
+    }
+
+    await record.destroy();
+
+    res.status(200).json({
+      success: true,
+      message: '크로매틱 연습 항목이 삭제되었습니다',
+      deletedId: id
+    });
+  } catch (error) {
+    console.error('삭제 중 오류:', error);
+    res.status(500).json({ message: '서버 에러' });
+  }
+};
+
+
+
+
 //오늘 연습량 불러오기
 exports.getTodayPractice = async (req, res) => {
   const userId = req.query.user_id;
@@ -60,6 +91,7 @@ exports.getTodayPractice = async (req, res) => {
   }
 };
 
+
 //날짜별 연습 기록 불러옴 
 exports.getPracticeHistoryByDate = async (req, res) => {
   const userId = req.query.user_id;
@@ -113,75 +145,45 @@ exports.getPracticeHistoryByDate = async (req, res) => {
   }
 };
 
-//영상만 다 불러오기
-exports.getVideoFiles = async (req, res) => {
+//연습 목표 설정하기
+exports.getUserGoalInfo = async (req, res) => {
   const userId = req.query.user_id;
 
-  if (!userId) return res.status(400).json({ message: 'user_id가 필요합니다.' });
-
-  try {
-    const videos = await File.findAll({
-      where: {
-        userId,
-        videoUrl: { [Op.ne]: null },  // videoUrl 컬럼이 null이 아닌 것만
-      },
-      order: [['recordedAt', 'DESC']],
-      attributes: ['videoUrl', 'songTitle', 'recordedAt'],
-    });
-
-    const response = videos.map((v) => ({
-      video_url: v.videoUrl,
-      song_title: v.songTitle,
-      date: v.recordedAt.toISOString().slice(0, 10),
-    }));
-
-    res.status(200).json(response);
-  } catch (error) {
-    console.error('영상 파일 조회 오류:', error);
-    res.status(500).json({ message: '서버 오류' });
-  }
-};
-
-//노래별로 영상과 녹음 다 불러오기
-exports.getFilesBySong = async (req, res) => {
-  const userId = req.query.user_id;
-  const songId = req.query.song_id;
-
-  if (!userId || !songId) {
-    return res.status(400).json({ message: 'user_id와 song_id가 필요합니다.' });
+  if (!userId) {
+    return res.status(400).json({ message: 'user_id가 필요합니다.' });
   }
 
+  const today = new Date().toISOString().slice(0, 10);
+
   try {
-    const files = await File.findAll({
+    // 유저 정보
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ message: '유저를 찾을 수 없습니다.' });
+
+    // 녹음 파일 존재 여부
+    const hasRecording = await File.findOne({
       where: {
         userId,
-        songTitle: { [Op.ne]: null }, // songTitle이 null 아닌 것 (안하면 아무거나 나올 수도 있음)
-      },
-      // songTitle 대신 song_id가 DB에 없으면 songTitle로 필터링 못함. 실제 DB 구조에 맞게 조정 필요
-      // songId 필드 없으면, songTitle로 필터하는 대신 songId 컬럼 추가 검토 필요
-
-      // 아래 조건은 songTitle 대신 songId가 있으면 대체 가능:
-      // where: { userId, songId },
-
-      // 만약 song_id 컬럼 있으면 아래로 변경:
-      // where: { userId, songId: songId },
-
-      order: [['recordedAt', 'DESC']],
-      attributes: ['videoUrl', 'audioUrl', 'recordedAt'],
+        audioUrl: { [Op.ne]: null },
+        recordedAt: {
+          [Op.gte]: `${today} 00:00:00`,
+          [Op.lte]: `${today} 23:59:59`,
+        }
+      }
     });
 
-    // songTitle이 없으면 요청한 song_id랑 매칭 안 될 수 있음. DB 스키마 확인 필요
+    // 크로매틱 연습 여부
+    const hasChromatic = await ChromaticPractice.findOne({
+      where: { userId, date: today }
+    });
 
-    // 응답 변환
-    const response = files.map((f) => ({
-      video_url: f.videoUrl || null,
-      recording_url: f.audioUrl || null,
-      date: f.recordedAt.toISOString().slice(0, 10),
-    }));
-
-    res.status(200).json(response);
+    res.status(200).json({
+      daily_goal_time: user.goalTime || 0,
+      has_recording_today: Boolean(hasRecording),
+      has_chromatic_today: Boolean(hasChromatic),
+    });
   } catch (error) {
-    console.error('노래별 파일 조회 오류:', error);
+    console.error('🎯 목표 설정 조회 오류:', error);
     res.status(500).json({ message: '서버 오류' });
   }
 };

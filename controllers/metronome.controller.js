@@ -84,33 +84,6 @@ exports.saveTotalPracticeTime = async (req, res) => {
   }
 };
 
-//연습기록 삭제 
-exports.deleteChromaticPractice = async (req, res) => {
-  const id = req.params.id; // URL 파라미터에서 삭제할 id 추출
-
-  if (!id) {
-    return res.status(400).json({ message: '삭제할 항목 ID가 필요합니다.' });
-  }
-
-  try {
-    const record = await ChromaticPractice.findByPk(id);
-
-    if (!record) {
-      return res.status(404).json({ message: '삭제할 항목을 찾을 수 없습니다.' });
-    }
-
-    await record.destroy();
-
-    res.status(200).json({
-      success: true,
-      message: '크로매틱 연습 항목이 삭제되었습니다',
-      deletedId: id
-    });
-  } catch (error) {
-    console.error('삭제 중 오류:', error);
-    res.status(500).json({ message: '서버 에러' });
-  }
-};
 
 
 

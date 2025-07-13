@@ -1,20 +1,20 @@
 const express = require('express');
 const router = express.Router();
 
-const userRoutes = require('./userRoutes');
-const metronomeRoutes = require('./page1.routes');
-const songsRoutes = require('./page1.routes');
+
 const authRoutes = require('./auth.routes');
-const page2Routes = require('./page2.routes');
-const page3Routes = require('./page3.routes');
+const filesRoutes = require('./files.routes');
+const metronomeRoutes = require('./metronome.routes');
+const practiceRoutes = require('./practice.routes');
+const songsRoutes = require('./songs.routes');
+const userRoutes = require('./userRoutes');
 
 router.use('/users', userRoutes);
 router.use('/metronome', metronomeRoutes);
 router.use('/songs', songsRoutes);
 router.use('/api/auth', authRoutes);
-router.use('/', page2Routes); 
-router.use('/', page3Routes);
-
+router.use('/files', filesRoutes);
+router.use('/practice', practiceRoutes);
 module.exports = router;
 
 

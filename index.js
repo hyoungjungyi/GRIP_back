@@ -4,8 +4,8 @@ const cors = require("cors");
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
 const { sequelize }=require('./models');
-const { swaggerUi, specs } = require('./swagger');
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+const { swaggerUi, specs } = require('./routes/swagger');
+
 
 const app = express();
 app.use(cors({
@@ -13,6 +13,7 @@ app.use(cors({
     credentials:true,
 }));
 app.use(express.json());
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 const apiRouter = require('./routes');
 app.use('/api', apiRouter);
