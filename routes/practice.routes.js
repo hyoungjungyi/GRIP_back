@@ -166,4 +166,67 @@ router.get('/practice/history', practiceController.getPracticeHistoryByDate);
  */
 router.get('/practice/goal', practiceController.getUserGoalInfo);
 
+/**
+ * @swagger
+ * /api/practice/achieve/check:
+ *   post:
+ *     summary: 하루 달성 여부 판단 및 저장
+ *     tags: [practice]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *               date:
+ *                 type: string
+ *                 format: date
+ *     responses:
+ *       200:
+ *         description: 달성 여부 반환
+ *       400:
+ *         description: 입력값 누락
+ *       500:
+ *         description: 서버 오류
+ */
+router.post('/achieve/check', practiceController.checkDailyAchievement);
+
+/**
+ * @swagger
+ * /api/practice/achieve/monthly:
+ *   get:
+ *     summary: 월별 성공/실패 날짜 리스트 반환
+ *     tags: [practice]
+ *     parameters:
+ *       - in: query
+ *         name: user_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: year
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: month
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: 날짜 리스트 반환
+ *       400:
+ *         description: 입력값 누락
+ *       500:
+ *         description: 서버 오류
+ */
+router.get('/achieve/monthly', practiceController.getMonthlyAchievements);
+
+
+
+
 module.exports = router;

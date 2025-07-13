@@ -7,13 +7,19 @@ const { sequelize }=require('./models');
 const { swaggerUi, specs } = require('./routes/swagger');
 
 
+
 const app = express();
 app.use(cors({
-    origin:'http://localhost:5173',
+    origin:'http://143.248.184.18:5173',
     credentials:true,
 }));
 app.use(express.json());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+
+app.get('/swagger.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(specs);
+});
 
 const apiRouter = require('./routes');
 app.use('/api', apiRouter);
@@ -27,7 +33,9 @@ app.get('/', (req, res) => {
 sequelize.sync({ force: true }) // 개발 중에는 alter:true, 배포 땐 false or migration 권장
   .then(() => {
     console.log('✅ DB 연결 및 테이블 생성 성공!');
-    app.listen(PORT, () => console.log(`🚀 서버 실행 중: http://localhost:${PORT}`));
+    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`Swagger UI: http://localhost:${PORT}/api-docs`);
+    console.log(`Swagger JSON: http://localhost:${PORT}/swagger.json`);
   })
   .catch(err => console.error('❌ DB 연결 실패:', err));
 

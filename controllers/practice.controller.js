@@ -187,3 +187,67 @@ exports.getUserGoalInfo = async (req, res) => {
     res.status(500).json({ message: '서버 오류' });
   }
 };
+
+// 하루 달성 체크 및 업데이트
+exports.checkDailyAchievement = async (req, res) => {
+  const { user_id, date } = req.body;
+  if (!user_id || !date) return res.status(400).json({ message: 'user_id와 date가 필요합니다.' });
+
+  try {
+    const user = await User.findByPk(user_id);
+    const goal = user?.goalTime || 0;
+
+    const record = await PracticeRecord.findOne({ where: { userId: user_id, date } });
+    const totalTime = record?.totalPracticeTime || 0;
+
+    const recording = await File.findOne({
+      where: {
+        userId: user_id,
+        recordedAt: { [Op.between]: [`${date} 00:00:00`, `${date} 23:59:59`] },
+        audioUrl: { [Op.ne]: null },
+      },
+    });
+
+    const chromatic = await ChromaticPractice.findOne({ where: { userId: user_id, date } });
+
+    const achieved = totalTime >= goal && recording && chromatic ? 'yes' : 'no';
+
+    if (record) {
+      record.isAchieved = achieved;
+      await record.save();
+    } else {
+      await PracticeRecord.create({ userId: user_id, date, totalPracticeTime: 0, isAchieved: achieved });
+    }
+
+    return res.status(200).json({ date, isAchieved: achieved });
+  } catch (err) {
+    console.error('달성 판단 오류:', err);
+    return res.status(500).json({ message: '서버 오류' });
+  }
+};
+
+// 월별 성공/실패 날짜 반환
+exports.getMonthlyAchievements = async (req, res) => {
+  const { user_id, year, month } = req.query;
+  if (!user_id || !year || !month) return res.status(400).json({ message: 'user_id, year, month가 필요합니다.' });
+
+  const start = `${year}-${month}-01`;
+  const end = `${year}-${month}-31`;
+
+  try {
+    const records = await PracticeRecord.findAll({
+      where: {
+        userId: user_id,
+        date: { [Op.between]: [start, end] },
+      },
+    });
+
+    const success_dates = records.filter(r => r.isAchieved === 'yes').map(r => r.date);
+    const fail_dates = records.filter(r => r.isAchieved === 'no').map(r => r.date);
+
+    return res.status(200).json({ success_dates, fail_dates });
+  } catch (err) {
+    console.error('월별 달성 조회 오류:', err);
+    return res.status(500).json({ message: '서버 오류' });
+  }
+};
