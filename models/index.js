@@ -20,6 +20,8 @@ Song.hasMany(SavedSong, { foreignKey: "songId" });
 SavedSong.belongsTo(Song, { foreignKey: "songId" });
 
 PracticeRecord.hasMany(File, { foreignKey: "practiceRecordId" });
+PracticeRecord.belongsTo(models.Song, {foreignKey:'songId'});
+Song.hasMany(models.PracticeRecord,{foreignKey:'songId'});
 
 module.exports = {
   sequelize,

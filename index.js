@@ -3,7 +3,9 @@ const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
-const { sequelize }=require('./models')
+const { sequelize }=require('./models');
+const { swaggerUi, specs } = require('./swagger');
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 const app = express();
 app.use(cors({
@@ -12,8 +14,9 @@ app.use(cors({
 }));
 app.use(express.json());
 
-const authRoutes = require('./routes/auth.routes');
-app.use('/api/auth', authRoutes);
+const apiRouter = require('./routes');
+app.use('/api', apiRouter);
+
 
 const PORT=process.env.PORT || 5500;
 app.get('/', (req, res) => {

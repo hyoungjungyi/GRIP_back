@@ -12,6 +12,7 @@ const refreshTokens = new Set(); // 간단하게 저장 (실제론 Redis/DB 추�
 // 1. 구글 로그인 → JWT 발급
 exports.googleLogin = async (req, res) => {
   const { token:idToken } = req.body;
+  console.log('[googleLogin] 요청 받음, idToken:', idToken);
   if (!idToken) return res.status(400).json({ message: 'idToken missing' });
 
   try {
@@ -22,6 +23,7 @@ exports.googleLogin = async (req, res) => {
 
     const payload = ticket.getPayload();
     const { sub: googleId, email, name, picture } = payload;
+    console.log('[googleLogin] 구글 토큰 검증 성공:', { googleId, email, name });
 
     // 유저 DB 확인 or 생성
     let user = await User.findOne({ where: { googleId } });
@@ -40,6 +42,7 @@ exports.googleLogin = async (req, res) => {
     const refreshToken = jwt.sign({ id: user.id }, REFRESH_SECRET_KEY, { expiresIn: '7d' });
 
     refreshTokens.add(refreshToken);
+    console.log('[googleLogin] JWT 토큰 발급 완료');
 
     res.json({
       token: accessToken,
@@ -84,3 +87,4 @@ exports.refreshToken = (req, res) => {
     res.json({ token: newToken });
   });
 };
+ 
