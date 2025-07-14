@@ -337,6 +337,93 @@ async function convertToMonophonicMidi(inputGuitarPath, outputMidiPath) {
   });
 }
 
+// 기타 TAB 생성 함수
+async function generateGuitarTab(inputMidiPath, outputTabImagePath, outputTabTextPath = null) {
+  return new Promise((resolve) => {
+    const pythonEnvPath = path.join(__dirname, "../audio_env_39/bin/python3");
+    const scriptPath = path.join(__dirname, "../scripts/guitar_tab_generator.py");
+
+    console.log(`🎸 기타 TAB 생성 실행: ${scriptPath}`);
+    console.log(`📥 입력: ${inputMidiPath}`);
+    console.log(`📤 출력: ${outputTabImagePath}`);
+
+    const args = [scriptPath, inputMidiPath, outputTabImagePath];
+    if (outputTabTextPath) {
+      args.push(outputTabTextPath);
+    }
+
+    const pythonProcess = spawn(pythonEnvPath, args, {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      stdout += output;
+      console.log(`🐍 ${output.trim()}`);
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      const error = data.toString();
+      stderr += error;
+      console.error(`🐍 ERROR: ${error.trim()}`);
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        console.log("✅ 기타 TAB 생성 완료");
+
+        try {
+          if (fs.existsSync(outputTabImagePath)) {
+            const stats = fs.statSync(outputTabImagePath);
+            resolve({
+              success: true,
+              tab_image_path: outputTabImagePath,
+              tab_text_path: outputTabTextPath,
+              file_size_kb: (stats.size / 1024).toFixed(2),
+              stdout: stdout,
+            });
+          } else {
+            resolve({
+              success: false,
+              error: "TAB 이미지 파일이 생성되지 않음",
+              stdout: stdout,
+              stderr: stderr
+            });
+          }
+        } catch (error) {
+          resolve({
+            success: false,
+            error: error.message,
+            stdout: stdout,
+            stderr: stderr
+          });
+        }
+      } else {
+        console.error(`❌ 기타 TAB 생성 실패 코드: ${code}`);
+        resolve({
+          success: false,
+          error: `기타 TAB 생성 실패 (코드: ${code})`,
+          stdout: stdout,
+          stderr: stderr,
+        });
+      }
+    });
+
+    pythonProcess.on("error", (error) => {
+      console.error(`❌ Python 프로세스 오류:`, error);
+      resolve({
+        success: false,
+        error: error.message,
+        stdout: stdout,
+        stderr: stderr,
+      });
+    });
+  });
+}
+
 //ai 생성하기
 exports.generateTabFromAudio = async (req, res) => {
   const { audio_url } = req.body;
@@ -446,14 +533,34 @@ exports.generateTabFromAudio = async (req, res) => {
       console.log("✅ 모노포닉 MIDI 변환 완료!");
     }
 
+    // 🎼 4단계: 기타 TAB 생성
+    console.log("🎸 기타 TAB 악보 생성 시작...");
+    const tabImageFileName = `tab_${Date.now()}.png`;
+    const tabTextFileName = `tab_${Date.now()}.txt`;
+    const tabImagePath = path.join(outputDir, tabImageFileName);
+    const tabTextPath = path.join(outputDir, tabTextFileName);
+    
+    const tabGenerationResult = await generateGuitarTab(midiFilePath, tabImagePath, tabTextPath);
+    
+    if (!tabGenerationResult.success) {
+      console.log("⚠️ TAB 생성 실패, MIDI 파일은 유지됩니다.");
+    } else {
+      console.log("✅ 기타 TAB 생성 완료!");
+    }
+
     // DB에 노래 정보 저장 (DB 연결이 실패해도 계속 진행)
     let newSong = null;
     try {
+      // TAB 이미지가 있으면 사용, 없으면 임시값
+      const tabImageUrl = tabGenerationResult.success ? 
+        `/output/${tabImageFileName}` : 
+        `temp_tab_${Date.now()}.png`;
+      
       newSong = await Song.create({
         title: title,
         artist: author,
         genre: "AI",
-        tabImageUrl: `temp_tab_${Date.now()}.png`, // 아직 악보 생성 전이므로 임시값
+        tabImageUrl: tabImageUrl,
       });
       console.log("✅ DB에 노래 정보 저장 완료");
     } catch (dbError) {
@@ -462,10 +569,12 @@ exports.generateTabFromAudio = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "향상된 오디오 다운로드, 기타 분리 및 모노포닉 MIDI 변환 완료",
+      message: "완전한 YouTube → TAB 변환 완료",
       original_audio_path: finalAudioPath,
       guitar_audio_path: guitarFilePath,
       midi_file_path: midiFilePath,
+      tab_image_path: tabGenerationResult.success ? tabImagePath : null,
+      tab_text_path: tabGenerationResult.success ? tabTextPath : null,
       processing_info: {
         guitar_separation: {
           enhanced: guitarSeparationResult.enhanced || false,
@@ -476,6 +585,11 @@ exports.generateTabFromAudio = async (req, res) => {
           monophonic: midiConversionResult.monophonic || false,
           method: midiConversionResult.monophonic ? "모노포닉 변환" : "기본 변환",
           ...midiConversionResult
+        },
+        tab_generation: {
+          success: tabGenerationResult.success,
+          method: "직접 구현 TAB 생성",
+          ...tabGenerationResult
         }
       },
       song_info: {
@@ -484,12 +598,18 @@ exports.generateTabFromAudio = async (req, res) => {
         duration: duration,
       },
       song_id: newSong ? newSong.id : null,
-      next_step: "tab_generation",
+      next_step: tabGenerationResult.success ? "complete" : "tab_generation_retry",
+      pipeline_status: {
+        "1_download": "✅ 완료",
+        "2_guitar_separation": guitarSeparationResult.success ? "✅ 완료" : "⚠️ 기본으로 대체",
+        "3_midi_conversion": midiConversionResult.success ? "✅ 완료" : "❌ 실패",
+        "4_tab_generation": tabGenerationResult.success ? "✅ 완료" : "❌ 실패"
+      },
       improvements: [
-        "향상된 기타 주파수 필터링",
-        "드럼/베이스 성분 제거",
-        "모노포닉 멜로디 추출",
-        "기타 튜닝 최적화"
+        "보수적 기타 분리 (멜로디 보존)",
+        "화음 허용 모노포닉 변환",
+        "기타 프렛 최적화",
+        "시각적 TAB 악보 생성"
       ]
     });
   } catch (error) {
