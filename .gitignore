@@ -1,3 +1,4 @@
 .env
 node_modules/
-output/audio_env_39/
+output/
+audio_env_39/
