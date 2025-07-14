@@ -252,3 +252,27 @@ exports.getMonthlyAchievements = async (req, res) => {
     return res.status(500).json({ message: '서버 오류' });
   }
 };
+
+//목표 연습량 저장(Post)
+exports.setPracticeGoal = async (req, res) => {
+  const userId = req.user?.id;
+  const { goal_time, use_chromatic, require_recording } = req.body;
+
+  try {
+    const user = await User.findByPk(user_id);
+    if (!user) {
+      return res.status(404).json({ message: "유저를 찾을 수 없습니다." });
+    }
+
+    user.goal_time = goal_time;
+    user.use_chromatic = use_chromatic;
+    user.require_recording = require_recording;
+
+    await user.save();
+
+    return res.status(200).json({ message: "연습 목표 설정 완료" });
+  } catch (err) {
+    console.error("연습 목표 설정 실패:", err);
+    return res.status(500).json({ message: "서버 에러" });
+  }
+};

@@ -225,7 +225,45 @@ router.post('/achieve/check', authenticateToken,practiceController.checkDailyAch
  */
 router.get('/achieve/monthly',authenticateToken, practiceController.getMonthlyAchievements);
 
-
+/**
+ * @swagger
+ * /api/practice/post-goal:
+ *   post:
+ *     summary: 연습 목표 설정
+ *     tags: [practice]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_id
+ *               - goal_time
+ *               - use_chromatic
+ *               - require_recording
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *                 description: 유저 ID
+ *               goal_time:
+ *                 type: integer
+ *                 description: 하루 연습 목표 시간 (분 단위)
+ *               use_chromatic:
+ *                 type: boolean
+ *                 description: 크로매틱 연습 포함 여부
+ *               require_recording:
+ *                 type: boolean
+ *                 description: 녹음파일 필수 여부
+ *     responses:
+ *       200:
+ *         description: 목표 설정 성공
+ *       404:
+ *         description: 유저를 찾을 수 없음
+ *       500:
+ *         description: 서버 에러
+ */
+router.post("/post-goal", authenticateToken, practiceController.setPracticeGoal);
 
 
 module.exports = router;

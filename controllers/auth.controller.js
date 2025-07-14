@@ -39,7 +39,7 @@ exports.googleLogin = async (req, res) => {
         console.log("Existing user logged in:", user.toJSON());
     }
 
-    const accessToken = jwt.sign({ id: user.id, gogleId: user.googleId, username: user.username }, SECRET_KEY, { expiresIn: '1h' });
+    const accessToken = jwt.sign({ id: user.id, googleId: user.googleId, username: user.username }, SECRET_KEY, { expiresIn: '1h' });
     const refreshToken = jwt.sign({ id: user.id }, REFRESH_SECRET_KEY, { expiresIn: '7d' });
 
     refreshTokens.add(refreshToken);
