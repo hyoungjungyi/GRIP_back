@@ -1,7 +1,7 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const songsController = require('../controllers/songs.controller');
-const authenticateToken = require('../middlewares/authMiddleware');
+const songsController = require("../controllers/songs.controller");
+const authenticateToken = require("../middlewares/authMiddleware");
 
 /**
  * @swagger
@@ -42,7 +42,7 @@ const authenticateToken = require('../middlewares/authMiddleware');
  *       500:
  *         description: 서버 오류
  */
-router.post('/tab-generator',  songsController.generateTabFromAudio);
+router.post("/tab-generator", songsController.generateTabFromAudio);
 /**
  * @swagger
  * /api/songs/sheets/all-lists:
@@ -108,7 +108,7 @@ router.post('/tab-generator',  songsController.generateTabFromAudio);
  *         description: 서버 오류
  */
 
-router.get('/all-lists', authenticateToken, songsController.getAllSongLists);
+router.get("/all-lists", authenticateToken, songsController.getAllSongLists);
 /**
  * @swagger
  * /api/songs/{id}:
@@ -140,8 +140,67 @@ router.get('/all-lists', authenticateToken, songsController.getAllSongLists);
  *       500:
  *         description: 서버 오류
  */
-router.get('/sheets/:id',authenticateToken, songsController.getSheetImage);
+router.get("/sheets/:id", authenticateToken, songsController.getSheetImage);
 
+/**
+ * @swagger
+ * /api/songs/convert-youtube:
+ *   post:
+ *     summary: Convert YouTube video to MIDI and guitar tabs with method selection
+ *     tags: [songs]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - youtubeUrl
+ *             properties:
+ *               youtubeUrl:
+ *                 type: string
+ *                 description: YouTube video URL to convert
+ *               tabMethod:
+ *                 type: string
+ *                 enum: [tabify, custom]
+ *                 default: tabify
+ *                 description: TAB generation method (tabify = Professional Tabify tool, custom = Custom generator)
+ *     responses:
+ *       200:
+ *         description: Conversion successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     audioFile:
+ *                       type: string
+ *                     guitarStemFile:
+ *                       type: string
+ *                     midiFile:
+ *                       type: string
+ *                     tabImageFile:
+ *                       type: string
+ *                     tabTextFile:
+ *                       type: string
+ *                     tabMethod:
+ *                       type: string
+ *                       description: Actual TAB generation method used
+ *                     midiRange:
+ *                       type: string
+ *                       description: MIDI note range used
+ *       400:
+ *         description: Invalid YouTube URL
+ *       500:
+ *         description: Server error
+ */
+router.post("/convert-youtube", songsController.convertYouTube);
 
 module.exports = router;
-

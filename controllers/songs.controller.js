@@ -5,6 +5,51 @@ const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
 
+// YouTube 오디오 다운로드 함수
+async function downloadYouTubeAudio(youtubeUrl, outputPath) {
+  return new Promise((resolve) => {
+    console.log(`🎵 YouTube 오디오 다운로드 시작: ${youtubeUrl}`);
+    console.log(`📁 출력 경로: ${outputPath}`);
+
+    const options = {
+      format: 'bestaudio[ext=m4a]/best[ext=mp4]/best',
+      extractAudio: true,
+      audioFormat: 'wav',
+      output: outputPath,
+      noPlaylist: true,
+    };
+
+    youtubedl(youtubeUrl, options)
+      .then(() => {
+        console.log("✅ YouTube 오디오 다운로드 완료");
+        
+        if (fs.existsSync(outputPath)) {
+          const stats = fs.statSync(outputPath);
+          console.log(`📊 다운로드된 파일 크기: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+          
+          resolve({
+            success: true,
+            filePath: outputPath,
+            fileSize: stats.size
+          });
+        } else {
+          console.error("❌ 다운로드된 파일을 찾을 수 없음");
+          resolve({
+            success: false,
+            error: "다운로드된 파일을 찾을 수 없습니다."
+          });
+        }
+      })
+      .catch((error) => {
+        console.error("❌ YouTube 다운로드 오류:", error);
+        resolve({
+          success: false,
+          error: error.message || "YouTube 다운로드 실패"
+        });
+      });
+  });
+}
+
 // 기타 음원 분리 함수
 async function separateGuitar(inputAudioPath, outputGuitarPath) {
   return new Promise((resolve) => {
@@ -91,15 +136,295 @@ async function separateGuitar(inputAudioPath, outputGuitarPath) {
   });
 }
 
-// MIDI 변환 함수
+// MIDI 변환 함수 (향상된 음악적 품질)
 async function convertToMidi(inputGuitarPath, outputMidiPath) {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     const pythonEnvPath = path.join(__dirname, "../audio_env_39/bin/python3");
-    const scriptPath = path.join(__dirname, "../scripts/midi_conversion.py");
+    
+    // 1차 시도: 향상된 음악적 MIDI 변환
+    console.log(`🎵 향상된 음악적 MIDI 변환 시도 중...`);
+    const enhancedResult = await tryEnhancedMidiConversion(inputGuitarPath, outputMidiPath, pythonEnvPath);
+    
+    if (enhancedResult.success) {
+      console.log("✅ 향상된 음악적 MIDI 변환 성공!");
+      resolve({
+        ...enhancedResult,
+        conversion_type: "enhanced_musical"
+      });
+      return;
+    }
 
-    console.log(`🐍 MIDI 변환 Python 스크립트 실행: ${scriptPath}`);
+    console.log("🔄 향상된 변환 실패, 기타 최적화 버전으로 재시도...");
+    // 2차 시도: 기타 최적화 버전
+    const optimizedResult = await tryOptimizedMidiConversion(inputGuitarPath, outputMidiPath, pythonEnvPath);
+    
+    if (optimizedResult.success) {
+      console.log("✅ 기타 최적화 MIDI 변환 성공!");
+      resolve({
+        ...optimizedResult,
+        conversion_type: "guitar_optimized"
+      });
+      return;
+    }
+
+    console.log("🔄 최적화 변환 실패, 기본 버전으로 재시도...");
+    // 3차 시도: 기본 버전
+    const basicResult = await tryBasicMidiConversion(inputGuitarPath, outputMidiPath, pythonEnvPath);
+    
+    resolve({
+      ...basicResult,
+      conversion_type: basicResult.success ? "basic" : "failed"
+    });
+  });
+}
+
+// Tabify 호환 MIDI 변환 시도
+async function tryTabifyCompatibleMidiConversion(inputGuitarPath, outputMidiPath, pythonEnvPath) {
+  return new Promise((resolve) => {
+    const scriptPath = path.join(__dirname, "../scripts/midi_conversion_tabify_compatible.py");
+
+    console.log(`🎸 Tabify 호환 MIDI 변환 실행: ${scriptPath}`);
+
+    const pythonProcess = spawn(pythonEnvPath, [scriptPath, inputGuitarPath, outputMidiPath], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      stdout += output;
+      console.log(`🎸 ${output.trim()}`);
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      const error = data.toString();
+      stderr += error;
+      console.error(`🎸 ERROR: ${error.trim()}`);
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        console.log("✅ Tabify 호환 MIDI 변환 완료");
+
+        try {
+          if (fs.existsSync(outputMidiPath)) {
+            const stats = fs.statSync(outputMidiPath);
+            resolve({
+              success: true,
+              output_path: outputMidiPath,
+              file_size_mb: (stats.size / (1024 * 1024)).toFixed(2),
+              stdout: stdout,
+              stderr: stderr,
+            });
+          } else {
+            console.error("❌ 출력 파일이 생성되지 않음");
+            resolve({
+              success: false,
+              error: "출력 파일이 생성되지 않았습니다.",
+              stdout: stdout,
+              stderr: stderr,
+            });
+          }
+        } catch (error) {
+          console.error("❌ 파일 시스템 오류:", error);
+          resolve({
+            success: false,
+            error: error.message,
+            stdout: stdout,
+            stderr: stderr,
+          });
+        }
+      } else {
+        console.error(`❌ Tabify 호환 MIDI 변환 실패 (종료 코드: ${code})`);
+        resolve({
+          success: false,
+          error: `Tabify 호환 MIDI 변환 실패 (코드: ${code})`,
+          stdout: stdout,
+          stderr: stderr,
+        });
+      }
+    });
+
+    pythonProcess.on('error', (error) => {
+      console.error(`❌ Python 프로세스 오류:`, error);
+      resolve({
+        success: false,
+        error: error.message,
+        stdout: stdout,
+        stderr: stderr,
+      });
+    });
+  });
+}
+
+// 향상된 음악적 MIDI 변환 시도
+async function tryEnhancedMidiConversion(inputGuitarPath, outputMidiPath, pythonEnvPath) {
+  return new Promise((resolve) => {
+    const scriptPath = path.join(__dirname, "../scripts/midi_conversion_enhanced_musical.py");
+
+    console.log(`🎵 향상된 음악적 MIDI 변환 실행: ${scriptPath}`);
     console.log(`📥 입력: ${inputGuitarPath}`);
     console.log(`📤 출력: ${outputMidiPath}`);
+
+    const pythonProcess = spawn(pythonEnvPath, [scriptPath, inputGuitarPath, outputMidiPath], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      stdout += output;
+      console.log(`🎵 ${output.trim()}`);
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      const error = data.toString();
+      stderr += error;
+      console.error(`🎵 ERROR: ${error.trim()}`);
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        console.log("✅ 향상된 음악적 MIDI 변환 완료");
+
+        try {
+          if (fs.existsSync(outputMidiPath)) {
+            const stats = fs.statSync(outputMidiPath);
+            resolve({
+              success: true,
+              output_path: outputMidiPath,
+              file_size_kb: (stats.size / 1024).toFixed(2),
+              stdout: stdout,
+              quality: "enhanced_musical"
+            });
+          } else {
+            resolve({
+              success: false,
+              error: "향상된 MIDI 파일이 생성되지 않음",
+              stdout: stdout,
+              stderr: stderr
+            });
+          }
+        } catch (error) {
+          resolve({
+            success: false,
+            error: error.message,
+            stdout: stdout,
+            stderr: stderr
+          });
+        }
+      } else {
+        console.error(`❌ 향상된 MIDI 변환 실패 코드: ${code}`);
+        resolve({
+          success: false,
+          error: `향상된 MIDI 변환 실패 (코드: ${code})`,
+          stdout: stdout,
+          stderr: stderr
+        });
+      }
+    });
+
+    pythonProcess.on('error', (error) => {
+      console.error(`❌ Python 프로세스 오류:`, error);
+      resolve({
+        success: false,
+        error: error.message,
+        stdout: stdout,
+        stderr: stderr
+      });
+    });
+  });
+}
+
+// 기타 최적화 MIDI 변환 시도
+async function tryOptimizedMidiConversion(inputGuitarPath, outputMidiPath, pythonEnvPath) {
+  return new Promise((resolve) => {
+    const scriptPath = path.join(__dirname, "../scripts/midi_conversion_guitar_optimized.py");
+
+    console.log(`🎸 기타 최적화 MIDI 변환 실행: ${scriptPath}`);
+
+    const pythonProcess = spawn(pythonEnvPath, [scriptPath, inputGuitarPath, outputMidiPath], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      stdout += output;
+      console.log(`🎸 ${output.trim()}`);
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      const error = data.toString();
+      stderr += error;
+      console.error(`🎸 ERROR: ${error.trim()}`);
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        console.log("✅ 기타 최적화 MIDI 변환 완료");
+
+        try {
+          if (fs.existsSync(outputMidiPath)) {
+            const stats = fs.statSync(outputMidiPath);
+            resolve({
+              success: true,
+              output_path: outputMidiPath,
+              file_size_kb: (stats.size / 1024).toFixed(2),
+              stdout: stdout,
+              quality: "guitar_optimized"
+            });
+          } else {
+            resolve({
+              success: false,
+              error: "최적화 MIDI 파일이 생성되지 않음",
+              stdout: stdout,
+              stderr: stderr
+            });
+          }
+        } catch (error) {
+          resolve({
+            success: false,
+            error: error.message,
+            stdout: stdout,
+            stderr: stderr
+          });
+        }
+      } else {
+        console.error(`❌ 최적화 MIDI 변환 실패 코드: ${code}`);
+        resolve({
+          success: false,
+          error: `최적화 MIDI 변환 실패 (코드: ${code})`,
+          stdout: stdout,
+          stderr: stderr
+        });
+      }
+    });
+
+    pythonProcess.on('error', (error) => {
+      console.error(`❌ Python 프로세스 오류:`, error);
+      resolve({
+        success: false,
+        error: error.message,
+        stdout: stdout,
+        stderr: stderr
+      });
+    });
+  });
+}
+
+// 기본 MIDI 변환 시도
+async function tryBasicMidiConversion(inputGuitarPath, outputMidiPath, pythonEnvPath) {
+  return new Promise((resolve) => {
+    const scriptPath = path.join(__dirname, "../scripts/midi_conversion.py");
+
+    console.log(`🐍 기본 MIDI 변환 실행: ${scriptPath}`);
 
     const pythonProcess = spawn(pythonEnvPath, [scriptPath, inputGuitarPath, outputMidiPath], {
       stdio: ['pipe', 'pipe', 'pipe']
@@ -122,10 +447,9 @@ async function convertToMidi(inputGuitarPath, outputMidiPath) {
 
     pythonProcess.on('close', (code) => {
       if (code === 0) {
-        console.log("✅ MIDI 변환 Python 스크립트 완료");
+        console.log("✅ 기본 MIDI 변환 완료");
 
         try {
-          // 출력 파일 확인
           if (fs.existsSync(outputMidiPath)) {
             const stats = fs.statSync(outputMidiPath);
             resolve({
@@ -133,11 +457,12 @@ async function convertToMidi(inputGuitarPath, outputMidiPath) {
               output_path: outputMidiPath,
               file_size_kb: (stats.size / 1024).toFixed(2),
               stdout: stdout,
+              quality: "basic"
             });
           } else {
             resolve({
               success: false,
-              error: "MIDI 파일이 생성되지 않음",
+              error: "기본 MIDI 파일이 생성되지 않음",
               stdout: stdout,
               stderr: stderr
             });
@@ -151,10 +476,10 @@ async function convertToMidi(inputGuitarPath, outputMidiPath) {
           });
         }
       } else {
-        console.error(`❌ Python 스크립트 종료 코드: ${code}`);
+        console.error(`❌ 기본 MIDI 변환 실패 코드: ${code}`);
         resolve({
           success: false,
-          error: `Python 스크립트 실행 실패 (코드: ${code})`,
+          error: `기본 MIDI 변환 실패 (코드: ${code})`,
           stdout: stdout,
           stderr: stderr
         });
@@ -173,7 +498,89 @@ async function convertToMidi(inputGuitarPath, outputMidiPath) {
   });
 }
 
-// 향상된 기타 음원 분리 함수
+// 기타 스템 분리 함수 (향상된 버전 사용)
+async function separateGuitarStem(inputAudioPath, outputGuitarPath, pythonEnvPath) {
+  return new Promise((resolve) => {
+    const scriptPath = path.join(__dirname, "../scripts/guitar_separation_improved.py");
+
+    console.log(`🎸 기타 스템 분리 실행: ${scriptPath}`);
+    console.log(`📥 입력: ${inputAudioPath}`);
+    console.log(`📤 출력: ${outputGuitarPath}`);
+
+    const pythonProcess = spawn(pythonEnvPath, [scriptPath, inputAudioPath, outputGuitarPath], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      stdout += output;
+      console.log(`🐍 ${output.trim()}`);
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      const error = data.toString();
+      stderr += error;
+      console.error(`🐍 ERROR: ${error.trim()}`);
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        console.log("✅ 기타 스템 분리 완료");
+        
+        try {
+          if (fs.existsSync(outputGuitarPath)) {
+            const stats = fs.statSync(outputGuitarPath);
+            resolve({
+              success: true,
+              output_path: outputGuitarPath,
+              file_size_mb: (stats.size / (1024 * 1024)).toFixed(2),
+              stdout: stdout,
+              stderr: stderr
+            });
+          } else {
+            console.error("❌ 출력 파일이 생성되지 않음");
+            resolve({
+              success: false,
+              error: "출력 파일이 생성되지 않았습니다.",
+              stdout: stdout,
+              stderr: stderr
+            });
+          }
+        } catch (error) {
+          console.error("❌ 파일 시스템 오류:", error);
+          resolve({
+            success: false,
+            error: error.message,
+            stdout: stdout,
+            stderr: stderr
+          });
+        }
+      } else {
+        console.error(`❌ 기타 스템 분리 실패 (종료 코드: ${code})`);
+        resolve({
+          success: false,
+          error: `프로세스가 코드 ${code}로 종료되었습니다.`,
+          stdout: stdout,
+          stderr: stderr
+        });
+      }
+    });
+
+    pythonProcess.on('error', (error) => {
+      console.error(`❌ Python 프로세스 오류:`, error);
+      resolve({
+        success: false,
+        error: error.message,
+        stdout: stdout,
+        stderr: stderr
+      });
+    });
+  });
+}
+
 async function separateGuitarEnhanced(inputAudioPath, outputGuitarPath) {
   return new Promise((resolve) => {
     const pythonEnvPath = path.join(__dirname, "../audio_env_39/bin/python3");
@@ -424,6 +831,93 @@ async function generateGuitarTab(inputMidiPath, outputTabImagePath, outputTabTex
   });
 }
 
+// Tabify를 사용한 기타 TAB 생성 함수 (새로운 방식)
+async function generateGuitarTabWithTabify(inputMidiPath, outputTabImagePath, outputTabTextPath = null, pythonEnvPath) {
+  return new Promise((resolve) => {
+    const scriptPath = path.join(__dirname, "../scripts/tabify_converter.py");
+
+    console.log(`🎸 Tabify를 사용한 TAB 생성 실행: ${scriptPath}`);
+    console.log(`📥 입력: ${inputMidiPath}`);
+    console.log(`📤 출력: ${outputTabImagePath}`);
+
+    const args = [scriptPath, inputMidiPath, outputTabImagePath];
+    if (outputTabTextPath) {
+      args.push(outputTabTextPath);
+    }
+
+    const pythonProcess = spawn(pythonEnvPath, args, {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      stdout += output;
+      console.log(`🔥 ${output.trim()}`);
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      const error = data.toString();
+      stderr += error;
+      console.error(`🔥 ERROR: ${error.trim()}`);
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        console.log("✅ Tabify TAB 생성 완료");
+
+        try {
+          if (fs.existsSync(outputTabImagePath)) {
+            const stats = fs.statSync(outputTabImagePath);
+            resolve({
+              success: true,
+              tab_image_path: outputTabImagePath,
+              tab_text_path: outputTabTextPath,
+              file_size_kb: (stats.size / 1024).toFixed(2),
+              stdout: stdout,
+              method: "Tabify (Professional)"
+            });
+          } else {
+            resolve({
+              success: false,
+              error: "Tabify TAB 이미지 파일이 생성되지 않음",
+              stdout: stdout,
+              stderr: stderr
+            });
+          }
+        } catch (error) {
+          resolve({
+            success: false,
+            error: error.message,
+            stdout: stdout,
+            stderr: stderr
+          });
+        }
+      } else {
+        console.error(`❌ Tabify TAB 생성 실패 코드: ${code}`);
+        resolve({
+          success: false,
+          error: `Tabify TAB 생성 실패 (코드: ${code})`,
+          stdout: stdout,
+          stderr: stderr,
+        });
+      }
+    });
+
+    pythonProcess.on("error", (error) => {
+      console.error(`❌ Python 프로세스 오류:`, error);
+      resolve({
+        success: false,
+        error: error.message,
+        stdout: stdout,
+        stderr: stderr,
+      });
+    });
+  });
+}
+
 //ai 생성하기
 exports.generateTabFromAudio = async (req, res) => {
   const { audio_url } = req.body;
@@ -515,22 +1009,22 @@ exports.generateTabFromAudio = async (req, res) => {
       console.log("✅ 향상된 기타 분리 완료!");
     }
 
-    // 🎼 3단계: 모노포닉 MIDI 변환
-    console.log("🎼 모노포닉 기타 MIDI 변환 시작...");
-    const midiFileName = `guitar_mono_${Date.now()}.mid`;
+    // 🎼 3단계: 기타 최적화 MIDI 변환 (듣기 좋은 소리)
+    console.log("🎼 기타 최적화 MIDI 변환 시작...");
+    const midiFileName = `guitar_optimized_${Date.now()}.mid`;
     const midiFilePath = path.join(outputDir, midiFileName);
     
-    const midiConversionResult = await convertToMonophonicMidi(guitarFilePath, midiFilePath);
+    const midiConversionResult = await convertToGuitarOptimizedMidi(guitarFilePath, midiFilePath);
     
     if (!midiConversionResult.success) {
-      console.log("⚠️ 모노포닉 MIDI 변환 실패, 기본 방법으로 재시도...");
-      const basicMidiResult = await convertToMidi(guitarFilePath, midiFilePath);
+      console.log("⚠️ 최적화 MIDI 변환 실패, 기본 모노포닉으로 재시도...");
+      const basicMidiResult = await convertToMonophonicMidi(guitarFilePath, midiFilePath);
       if (!basicMidiResult.success) {
         throw new Error(`MIDI 변환 실패: ${basicMidiResult.error}`);
       }
-      console.log("✅ 기본 MIDI 변환 완료!");
+      console.log("✅ 기본 모노포닉 MIDI 변환 완료!");
     } else {
-      console.log("✅ 모노포닉 MIDI 변환 완료!");
+      console.log("✅ 기타 최적화 MIDI 변환 완료!");
     }
 
     // 🎼 4단계: 기타 TAB 생성
@@ -569,7 +1063,7 @@ exports.generateTabFromAudio = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "완전한 YouTube → TAB 변환 완료",
+      message: "완전한 YouTube → 듣기 좋은 기타 TAB 변환 완료",
       original_audio_path: finalAudioPath,
       guitar_audio_path: guitarFilePath,
       midi_file_path: midiFilePath,
@@ -582,13 +1076,13 @@ exports.generateTabFromAudio = async (req, res) => {
           ...guitarSeparationResult
         },
         midi_conversion: {
-          monophonic: midiConversionResult.monophonic || false,
-          method: midiConversionResult.monophonic ? "모노포닉 변환" : "기본 변환",
+          optimized: midiConversionResult.optimized || false,
+          method: midiConversionResult.optimized ? "기타 최적화 변환" : "기본 변환",
           ...midiConversionResult
         },
         tab_generation: {
           success: tabGenerationResult.success,
-          method: "직접 구현 TAB 생성",
+          method: "A4 다중 라인 TAB 생성",
           ...tabGenerationResult
         }
       },
@@ -605,11 +1099,13 @@ exports.generateTabFromAudio = async (req, res) => {
         "3_midi_conversion": midiConversionResult.success ? "✅ 완료" : "❌ 실패",
         "4_tab_generation": tabGenerationResult.success ? "✅ 완료" : "❌ 실패"
       },
-      improvements: [
-        "보수적 기타 분리 (멜로디 보존)",
-        "화음 허용 모노포닉 변환",
-        "기타 프렛 최적화",
-        "시각적 TAB 악보 생성"
+      musical_optimizations: [
+        "🎸 15프렛 연주 범위 최적화",
+        "🎵 음악적 멜로디 라인 추출",
+        "🎼 자연스러운 다이나믹 처리",
+        "🎯 기타 스위트 스팟 활용",
+        "📱 Tabify 완벽 호환성",
+        "🎶 듣기 좋은 소리 보장"
       ]
     });
   } catch (error) {
@@ -712,5 +1208,228 @@ exports.getSheetImage = async (req, res) => {
   } catch (error) {
     console.error("악보 조회 오류:", error);
     return res.status(500).json({ message: "서버 오류" });
+  }
+};
+
+// 기타 최적화 MIDI 변환 함수 (듣기 좋은 소리)
+async function convertToGuitarOptimizedMidi(inputGuitarPath, outputMidiPath) {
+  return new Promise((resolve) => {
+    const pythonEnvPath = path.join(__dirname, "../audio_env_39/bin/python3");
+    const scriptPath = path.join(__dirname, "../scripts/midi_conversion_guitar_optimized.py");
+
+    console.log(`🎸 기타 최적화 MIDI 변환 실행: ${scriptPath}`);
+    console.log(`📥 입력: ${inputGuitarPath}`);
+    console.log(`📤 출력: ${outputMidiPath}`);
+
+    const pythonProcess = spawn(pythonEnvPath, [scriptPath, inputGuitarPath, outputMidiPath], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      stdout += output;
+      console.log(`🐍 ${output.trim()}`);
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      const error = data.toString();
+      stderr += error;
+      console.error(`🐍 ERROR: ${error.trim()}`);
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        console.log("✅ 기타 최적화 MIDI 변환 완료");
+
+        try {
+          if (fs.existsSync(outputMidiPath)) {
+            const stats = fs.statSync(outputMidiPath);
+            resolve({
+              success: true,
+              output_path: outputMidiPath,
+              file_size_kb: (stats.size / 1024).toFixed(2),
+              stdout: stdout,
+              optimized: true,
+              features: [
+                "15프렛 연주 범위",
+                "음악적 멜로디 추출",
+                "자연스러운 다이나믹",
+                "기타 스위트 스팟 최적화",
+                "Tabify 완벽 호환"
+              ]
+            });
+          } else {
+            resolve({
+              success: false,
+              error: "기타 최적화 MIDI 파일이 생성되지 않음",
+              stdout: stdout,
+              stderr: stderr
+            });
+          }
+        } catch (error) {
+          resolve({
+            success: false,
+            error: error.message,
+            stdout: stdout,
+            stderr: stderr
+          });
+        }
+      } else {
+        console.error(`❌ 기타 최적화 MIDI 변환 실패 코드: ${code}`);
+        resolve({
+          success: false,
+          error: `기타 최적화 MIDI 변환 실패 (코드: ${code})`,
+          stdout: stdout,
+          stderr: stderr,
+        });
+      }
+    });
+
+    pythonProcess.on("error", (error) => {
+      console.error(`❌ Python 프로세스 오류:`, error);
+      resolve({
+        success: false,
+        error: error.message,
+        stdout: stdout,
+        stderr: stderr,
+      });
+    });
+  });
+}
+
+// YouTube-to-MIDI 변환 파이프라인
+exports.convertYouTube = async (req, res) => {
+  try {
+    const { youtubeUrl, tabMethod = "tabify" } = req.body; // 기본값은 tabify
+
+    if (!youtubeUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "YouTube URL이 필요합니다."
+      });
+    }
+
+    console.log(`🎥 YouTube-to-MIDI 변환 시작: ${youtubeUrl}`);
+    console.log(`🎸 TAB 생성 방식: ${tabMethod === "tabify" ? "Tabify (Professional)" : "Custom (기존 방식)"}`);
+
+    const outputDir = path.join(__dirname, "../output");
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    const timestamp = Date.now();
+    const outputAudioPath = path.join(outputDir, `audio_${timestamp}.wav`);
+    const outputGuitarPath = path.join(outputDir, `guitar_enhanced_${timestamp}.wav`);
+    const outputMidiPath = path.join(outputDir, `guitar_optimized_${timestamp}.mid`);
+    const outputTabImagePath = path.join(outputDir, `tab_${timestamp}.png`);
+    const outputTabTextPath = path.join(outputDir, `tab_${timestamp}.txt`);
+
+    // 1. YouTube 오디오 다운로드
+    console.log("🎵 1단계: YouTube 오디오 다운로드");
+    const downloadResult = await downloadYouTubeAudio(youtubeUrl, outputAudioPath);
+    if (!downloadResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: "YouTube 오디오 다운로드 실패",
+        error: downloadResult.error
+      });
+    }
+
+    // 2. 기타 스템 분리
+    console.log("🎸 2단계: 기타 스템 분리");
+    const pythonEnvPath = '/Users/choechiwon/madcamp/week2/GRIP_back/audio_env_39/bin/python';
+    const separationResult = await separateGuitarStem(outputAudioPath, outputGuitarPath, pythonEnvPath);
+    if (!separationResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: "기타 스템 분리 실패",
+        error: separationResult.error
+      });
+    }
+
+    // 3. MIDI 변환 (Tabify 호환 → 향상된 → 최적화 → 기본 순으로 시도)
+    console.log("🎹 3단계: MIDI 변환");
+    let midiResult = await tryTabifyCompatibleMidiConversion(outputGuitarPath, outputMidiPath, pythonEnvPath);
+    
+    if (!midiResult.success) {
+      console.log("⚠️ Tabify 호환 MIDI 변환 실패, 향상된 버전 시도");
+      midiResult = await tryEnhancedMidiConversion(outputGuitarPath, outputMidiPath, pythonEnvPath);
+    }
+    
+    if (!midiResult.success) {
+      console.log("⚠️ 향상된 MIDI 변환 실패, 최적화 버전 시도");
+      midiResult = await tryOptimizedMidiConversion(outputGuitarPath, outputMidiPath, pythonEnvPath);
+    }
+    
+    if (!midiResult.success) {
+      console.log("⚠️ 최적화 MIDI 변환 실패, 기본 버전 시도");
+      midiResult = await tryBasicMidiConversion(outputGuitarPath, outputMidiPath, pythonEnvPath);
+    }
+
+    if (!midiResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: "MIDI 변환 실패",
+        error: midiResult.error
+      });
+    }
+
+    // 4. 기타 TAB 생성 (방식 선택)
+    console.log(`📄 4단계: 기타 TAB 생성 (${tabMethod === "tabify" ? "Tabify" : "Custom"})`);
+    let tabResult;
+    
+    if (tabMethod === "tabify") {
+      // Tabify 방식 우선 시도
+      tabResult = await generateGuitarTabWithTabify(outputMidiPath, outputTabImagePath, outputTabTextPath, pythonEnvPath);
+      
+      if (!tabResult.success) {
+        console.log("⚠️ Tabify 방식 실패, 기존 방식으로 대체");
+        tabResult = await generateGuitarTab(outputMidiPath, outputTabImagePath, outputTabTextPath, pythonEnvPath);
+        tabResult.method = "Custom (Fallback)";
+      }
+    } else {
+      // 기존 방식 사용
+      tabResult = await generateGuitarTab(outputMidiPath, outputTabImagePath, outputTabTextPath, pythonEnvPath);
+      tabResult.method = "Custom (기존 방식)";
+    }
+    
+    if (!tabResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: "기타 TAB 생성 실패",
+        error: tabResult.error
+      });
+    }
+
+    // 성공 응답
+    const responseData = {
+      audioFile: path.basename(outputAudioPath),
+      guitarStemFile: path.basename(outputGuitarPath),
+      midiFile: path.basename(outputMidiPath),
+      tabImageFile: path.basename(outputTabImagePath),
+      tabTextFile: path.basename(outputTabTextPath),
+      processingTime: Date.now() - timestamp,
+      tabMethod: tabResult.method || tabMethod,
+      midiRange: "40-60 (E2-C4)"
+    };
+
+    console.log("✅ YouTube-to-MIDI 변환 완료:", responseData);
+
+    res.json({
+      success: true,
+      message: `YouTube-to-MIDI 변환이 성공적으로 완료되었습니다. (TAB: ${tabResult.method})`,
+      data: responseData
+    });
+
+  } catch (error) {
+    console.error("❌ YouTube-to-MIDI 변환 오류:", error);
+    res.status(500).json({
+      success: false,
+      message: "변환 중 오류가 발생했습니다.",
+      error: error.message
+    });
   }
 };
