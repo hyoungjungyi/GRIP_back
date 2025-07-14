@@ -173,6 +173,170 @@ async function convertToMidi(inputGuitarPath, outputMidiPath) {
   });
 }
 
+// 향상된 기타 음원 분리 함수
+async function separateGuitarEnhanced(inputAudioPath, outputGuitarPath) {
+  return new Promise((resolve) => {
+    const pythonEnvPath = path.join(__dirname, "../audio_env_39/bin/python3");
+    const scriptPath = path.join(__dirname, "../scripts/guitar_separation_improved.py");
+
+    console.log(`🎸 향상된 기타 분리 실행: ${scriptPath}`);
+    console.log(`📥 입력: ${inputAudioPath}`);
+    console.log(`📤 출력: ${outputGuitarPath}`);
+
+    const pythonProcess = spawn(pythonEnvPath, [scriptPath, inputAudioPath, outputGuitarPath], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      stdout += output;
+      console.log(`🐍 ${output.trim()}`);
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      const error = data.toString();
+      stderr += error;
+      console.error(`🐍 ERROR: ${error.trim()}`);
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        console.log("✅ 향상된 기타 분리 완료");
+        
+        try {
+          if (fs.existsSync(outputGuitarPath)) {
+            const stats = fs.statSync(outputGuitarPath);
+            resolve({
+              success: true,
+              output_path: outputGuitarPath,
+              file_size_mb: (stats.size / (1024 * 1024)).toFixed(2),
+              stdout: stdout,
+              enhanced: true
+            });
+          } else {
+            resolve({
+              success: false,
+              error: "향상된 기타 파일이 생성되지 않음",
+              stdout: stdout,
+              stderr: stderr
+            });
+          }
+        } catch (error) {
+          resolve({
+            success: false,
+            error: error.message,
+            stdout: stdout,
+            stderr: stderr
+          });
+        }
+      } else {
+        console.error(`❌ 향상된 기타 분리 실패 코드: ${code}`);
+        resolve({
+          success: false,
+          error: `향상된 기타 분리 실패 (코드: ${code})`,
+          stdout: stdout,
+          stderr: stderr,
+        });
+      }
+    });
+
+    pythonProcess.on("error", (error) => {
+      console.error(`❌ Python 프로세스 오류:`, error);
+      resolve({
+        success: false,
+        error: error.message,
+        stdout: stdout,
+        stderr: stderr,
+      });
+    });
+  });
+}
+
+// 모노포닉 MIDI 변환 함수
+async function convertToMonophonicMidi(inputGuitarPath, outputMidiPath) {
+  return new Promise((resolve) => {
+    const pythonEnvPath = path.join(__dirname, "../audio_env_39/bin/python3");
+    const scriptPath = path.join(__dirname, "../scripts/midi_conversion_monophonic.py");
+
+    console.log(`🎵 모노포닉 MIDI 변환 실행: ${scriptPath}`);
+    console.log(`📥 입력: ${inputGuitarPath}`);
+    console.log(`📤 출력: ${outputMidiPath}`);
+
+    const pythonProcess = spawn(pythonEnvPath, [scriptPath, inputGuitarPath, outputMidiPath], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      stdout += output;
+      console.log(`🐍 ${output.trim()}`);
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      const error = data.toString();
+      stderr += error;
+      console.error(`🐍 ERROR: ${error.trim()}`);
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        console.log("✅ 모노포닉 MIDI 변환 완료");
+
+        try {
+          if (fs.existsSync(outputMidiPath)) {
+            const stats = fs.statSync(outputMidiPath);
+            resolve({
+              success: true,
+              output_path: outputMidiPath,
+              file_size_kb: (stats.size / 1024).toFixed(2),
+              stdout: stdout,
+              monophonic: true
+            });
+          } else {
+            resolve({
+              success: false,
+              error: "모노포닉 MIDI 파일이 생성되지 않음",
+              stdout: stdout,
+              stderr: stderr
+            });
+          }
+        } catch (error) {
+          resolve({
+            success: false,
+            error: error.message,
+            stdout: stdout,
+            stderr: stderr
+          });
+        }
+      } else {
+        console.error(`❌ 모노포닉 MIDI 변환 실패 코드: ${code}`);
+        resolve({
+          success: false,
+          error: `모노포닉 MIDI 변환 실패 (코드: ${code})`,
+          stdout: stdout,
+          stderr: stderr,
+        });
+      }
+    });
+
+    pythonProcess.on("error", (error) => {
+      console.error(`❌ Python 프로세스 오류:`, error);
+      resolve({
+        success: false,
+        error: error.message,
+        stdout: stdout,
+        stderr: stderr,
+      });
+    });
+  });
+}
+
 //ai 생성하기
 exports.generateTabFromAudio = async (req, res) => {
   const { audio_url } = req.body;
@@ -246,31 +410,41 @@ exports.generateTabFromAudio = async (req, res) => {
 
     console.log(`🎵 영상 정보: ${title} by ${author} (${duration}초)`);
 
-    // 🎸 2단계: 기타 음원 분리
-    console.log("🎸 기타 음원 분리 시작...");
-    const guitarFileName = `guitar_${Date.now()}.wav`;
+    // 🎸 2단계: 향상된 기타 음원 분리
+    console.log("🎸 향상된 기타 음원 분리 시작...");
+    const guitarFileName = `guitar_enhanced_${Date.now()}.wav`;
     const guitarFilePath = path.join(outputDir, guitarFileName);
 
-    const guitarSeparationResult = await separateGuitar(finalAudioPath, guitarFilePath);
+    const guitarSeparationResult = await separateGuitarEnhanced(finalAudioPath, guitarFilePath);
 
     if (!guitarSeparationResult.success) {
-      throw new Error(`기타 분리 실패: ${guitarSeparationResult.error}`);
+      console.log("⚠️ 향상된 기타 분리 실패, 기본 방법으로 재시도...");
+      const basicGuitarResult = await separateGuitar(finalAudioPath, guitarFilePath);
+      if (!basicGuitarResult.success) {
+        throw new Error(`기타 분리 실패: ${basicGuitarResult.error}`);
+      }
+      console.log("✅ 기본 기타 분리 완료!");
+    } else {
+      console.log("✅ 향상된 기타 분리 완료!");
     }
 
-    console.log("✅ 기타 분리 완료!");
-
-    // 🎼 3단계: MIDI 변환
-    console.log("🎼 기타 오디오를 MIDI로 변환 시작...");
-    const midiFileName = `guitar_${Date.now()}.mid`;
+    // 🎼 3단계: 모노포닉 MIDI 변환
+    console.log("🎼 모노포닉 기타 MIDI 변환 시작...");
+    const midiFileName = `guitar_mono_${Date.now()}.mid`;
     const midiFilePath = path.join(outputDir, midiFileName);
     
-    const midiConversionResult = await convertToMidi(guitarFilePath, midiFilePath);
+    const midiConversionResult = await convertToMonophonicMidi(guitarFilePath, midiFilePath);
     
     if (!midiConversionResult.success) {
-      throw new Error(`MIDI 변환 실패: ${midiConversionResult.error}`);
+      console.log("⚠️ 모노포닉 MIDI 변환 실패, 기본 방법으로 재시도...");
+      const basicMidiResult = await convertToMidi(guitarFilePath, midiFilePath);
+      if (!basicMidiResult.success) {
+        throw new Error(`MIDI 변환 실패: ${basicMidiResult.error}`);
+      }
+      console.log("✅ 기본 MIDI 변환 완료!");
+    } else {
+      console.log("✅ 모노포닉 MIDI 변환 완료!");
     }
-
-    console.log("✅ MIDI 변환 완료!");
 
     // DB에 노래 정보 저장 (DB 연결이 실패해도 계속 진행)
     let newSong = null;
@@ -288,19 +462,35 @@ exports.generateTabFromAudio = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "오디오 다운로드, 기타 분리 및 MIDI 변환 완료",
+      message: "향상된 오디오 다운로드, 기타 분리 및 모노포닉 MIDI 변환 완료",
       original_audio_path: finalAudioPath,
       guitar_audio_path: guitarFilePath,
       midi_file_path: midiFilePath,
-      guitar_info: guitarSeparationResult,
-      midi_info: midiConversionResult,
+      processing_info: {
+        guitar_separation: {
+          enhanced: guitarSeparationResult.enhanced || false,
+          method: guitarSeparationResult.enhanced ? "향상된 분리" : "기본 분리",
+          ...guitarSeparationResult
+        },
+        midi_conversion: {
+          monophonic: midiConversionResult.monophonic || false,
+          method: midiConversionResult.monophonic ? "모노포닉 변환" : "기본 변환",
+          ...midiConversionResult
+        }
+      },
       song_info: {
         title: title,
         artist: author,
         duration: duration,
       },
       song_id: newSong ? newSong.id : null,
-      next_step: "tab_generation", // 다음 단계 힌트 (악보 생성)
+      next_step: "tab_generation",
+      improvements: [
+        "향상된 기타 주파수 필터링",
+        "드럼/베이스 성분 제거",
+        "모노포닉 멜로디 추출",
+        "기타 튜닝 최적화"
+      ]
     });
   } catch (error) {
     console.error("🚫 오디오 다운로드 오류:", error);
