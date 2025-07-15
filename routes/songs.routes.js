@@ -140,7 +140,7 @@ router.get("/all-lists", authenticateToken, songsController.getAllSongLists);
  *       500:
  *         description: 서버 오류
  */
-router.get("/sheets/:id", authenticateToken, songsController.getSheetImage);
+router.get("/sheet/:id", authenticateToken, songsController.getSheetImage);
 
 /**
  * @swagger
@@ -202,5 +202,275 @@ router.get("/sheets/:id", authenticateToken, songsController.getSheetImage);
  *         description: Server error
  */
 router.post("/convert-youtube", songsController.convertYouTube);
+
+/**
+ * @swagger
+ * /api/songs/upload-sheet:
+ *   post:
+ *     summary: 악보 업로드 (커버, 오선보, TAB)
+ *     tags: [songs]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - artist
+ *               - cover
+ *               - noteSheet
+ *               - tabSheet
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: 곡 제목
+ *               artist:
+ *                 type: string
+ *                 description: 아티스트명
+ *               cover:
+ *                 type: string
+ *                 format: binary
+ *                 description: 앨범 커버 이미지
+ *               noteSheet:
+ *                 type: string
+ *                 format: binary
+ *                 description: 오선보 이미지
+ *               tabSheet:
+ *                 type: string
+ *                 format: binary
+ *                 description: TAB 악보 이미지
+ *     responses:
+ *       200:
+ *         description: 악보 업로드 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     songId:
+ *                       type: integer
+ *                     title:
+ *                       type: string
+ *                     artist:
+ *                       type: string
+ *                     coverUrl:
+ *                       type: string
+ *                     noteSheetUrl:
+ *                       type: string
+ *                     tabSheetUrl:
+ *                       type: string
+ *                     uploadedAt:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: 필수 필드 누락
+ *       401:
+ *         description: 인증 필요
+ *       500:
+ *         description: 서버 오류
+ */
+router.post(
+  "/upload-sheet",
+  authenticateToken,
+  songsController.sheetUploadMiddleware,
+  songsController.uploadSheet
+);
+
+/**
+ * @swagger
+ * /api/songs/saved:
+ *   get:
+ *     summary: 즐겨찾기 목록 조회
+ *     tags: [songs]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 즐겨찾기 목록 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       savedId:
+ *                         type: integer
+ *                       savedAt:
+ *                         type: string
+ *                         format: date-time
+ *                       song_id:
+ *                         type: integer
+ *                       title:
+ *                         type: string
+ *                       artist:
+ *                         type: string
+ *                       genre:
+ *                         type: string
+ *                       coverUrl:
+ *                         type: string
+ *                       noteSheetUrl:
+ *                         type: string
+ *                       tabSheetUrl:
+ *                         type: string
+ *                       sheetUrl:
+ *                         type: string
+ *                 count:
+ *                   type: integer
+ *       401:
+ *         description: 인증 필요
+ *       500:
+ *         description: 서버 오류
+ *   post:
+ *     summary: 즐겨찾기 추가
+ *     tags: [songs]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - songId
+ *             properties:
+ *               songId:
+ *                 type: integer
+ *                 description: 즐겨찾기에 추가할 곡 ID
+ *     responses:
+ *       201:
+ *         description: 즐겨찾기 추가 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     savedId:
+ *                       type: integer
+ *                     songId:
+ *                       type: integer
+ *                     title:
+ *                       type: string
+ *                     artist:
+ *                       type: string
+ *                     savedAt:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: songId 누락
+ *       401:
+ *         description: 인증 필요
+ *       404:
+ *         description: 곡을 찾을 수 없음
+ *       409:
+ *         description: 이미 즐겨찾기에 추가됨
+ *       500:
+ *         description: 서버 오류
+ */
+router.get("/saved", authenticateToken, songsController.getSavedSongs);
+router.post("/saved", authenticateToken, songsController.addToSavedSongs);
+
+/**
+ * @swagger
+ * /api/songs/saved/{songId}:
+ *   delete:
+ *     summary: 즐겨찾기 제거
+ *     tags: [songs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: songId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 즐겨찾기에서 제거할 곡 ID
+ *     responses:
+ *       200:
+ *         description: 즐겨찾기 제거 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       401:
+ *         description: 인증 필요
+ *       404:
+ *         description: 즐겨찾기에서 곡을 찾을 수 없음
+ *       500:
+ *         description: 서버 오류
+ *   get:
+ *     summary: 즐겨찾기 상태 확인
+ *     tags: [songs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: songId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 확인할 곡 ID
+ *     responses:
+ *       200:
+ *         description: 즐겨찾기 상태 확인 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 isSaved:
+ *                   type: boolean
+ *                 savedId:
+ *                   type: integer
+ *                   nullable: true
+ *                 savedAt:
+ *                   type: string
+ *                   format: date-time
+ *                   nullable: true
+ *       401:
+ *         description: 인증 필요
+ *       500:
+ *         description: 서버 오류
+ */
+router.delete(
+  "/saved/:songId",
+  authenticateToken,
+  songsController.removeFromSavedSongs
+);
+router.get(
+  "/saved/:songId",
+  authenticateToken,
+  songsController.checkSavedSongStatus
+);
 
 module.exports = router;

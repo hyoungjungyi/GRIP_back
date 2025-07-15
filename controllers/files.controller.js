@@ -122,7 +122,7 @@ async function compressVideoTo30MB(inputPath, outputPath, targetSizeMB = 30) {
 
       const duration = metadata.format.duration; // 초 단위
       const currentSizeMB = fs.statSync(inputPath).size / (1024 * 1024);
-      
+
       console.log(`📹 원본 비디오 정보:`);
       console.log(`- 길이: ${duration.toFixed(1)}초`);
       console.log(`- 현재 크기: ${currentSizeMB.toFixed(1)}MB`);
@@ -131,55 +131,72 @@ async function compressVideoTo30MB(inputPath, outputPath, targetSizeMB = 30) {
       // 목표 비트레이트 계산 (약간의 여유를 둠)
       const targetSizeBytes = targetSizeMB * 1024 * 1024 * 0.9; // 90%로 안전 마진
       const targetBitrate = Math.floor((targetSizeBytes * 8) / duration / 1000); // kbps
-      
+
       // 최소/최대 비트레이트 제한
       const minBitrate = 200; // 200kbps
       const maxBitrate = 2000; // 2Mbps
-      const finalBitrate = Math.max(minBitrate, Math.min(maxBitrate, targetBitrate));
-      
+      const finalBitrate = Math.max(
+        minBitrate,
+        Math.min(maxBitrate, targetBitrate)
+      );
+
       console.log(`🎯 계산된 목표 비트레이트: ${finalBitrate}kbps`);
 
       // FFmpeg 압축 실행
       ffmpeg(inputPath)
         .outputOptions([
-          '-c:v libx264',           // H.264 코덱 사용
-          '-preset medium',         // 압축 속도와 품질의 균형
-          '-crf 28',               // 품질 설정 (28은 적당한 압축)
+          "-c:v libx264", // H.264 코덱 사용
+          "-preset medium", // 압축 속도와 품질의 균형
+          "-crf 28", // 품질 설정 (28은 적당한 압축)
           `-b:v ${finalBitrate}k`, // 비디오 비트레이트
-          '-maxrate ' + (finalBitrate * 1.2) + 'k', // 최대 비트레이트
-          '-bufsize ' + (finalBitrate * 2) + 'k',   // 버퍼 크기
-          '-c:a aac',              // AAC 오디오 코덱
-          '-b:a 128k',             // 오디오 비트레이트
-          '-movflags +faststart',  // 스트리밍 최적화
-          '-pix_fmt yuv420p',      // 호환성을 위한 픽셀 포맷
+          "-maxrate " + finalBitrate * 1.2 + "k", // 최대 비트레이트
+          "-bufsize " + finalBitrate * 2 + "k", // 버퍼 크기
+          "-c:a aac", // AAC 오디오 코덱
+          "-b:a 128k", // 오디오 비트레이트
+          "-movflags +faststart", // 스트리밍 최적화
+          "-pix_fmt yuv420p", // 호환성을 위한 픽셀 포맷
         ])
-        .size('854x480')           // 480p 해상도로 제한
-        .on('start', (commandLine) => {
-          console.log('🔄 FFmpeg 압축 시작:', commandLine);
+        .size("854x480") // 480p 해상도로 제한
+        .on("start", (commandLine) => {
+          console.log("🔄 FFmpeg 압축 시작:", commandLine);
         })
-        .on('progress', (progress) => {
+        .on("progress", (progress) => {
           console.log(`📊 압축 진행률: ${Math.round(progress.percent || 0)}%`);
         })
-        .on('end', () => {
+        .on("end", () => {
           const compressedSizeMB = fs.statSync(outputPath).size / (1024 * 1024);
           console.log(`✅ 압축 완료!`);
           console.log(`- 압축 후 크기: ${compressedSizeMB.toFixed(1)}MB`);
-          console.log(`- 압축률: ${Math.round((1 - compressedSizeMB/currentSizeMB) * 100)}%`);
-          
+          console.log(
+            `- 압축률: ${Math.round(
+              (1 - compressedSizeMB / currentSizeMB) * 100
+            )}%`
+          );
+
           if (compressedSizeMB <= targetSizeMB) {
-            console.log(`🎉 목표 크기 달성! (${compressedSizeMB.toFixed(1)}MB ≤ ${targetSizeMB}MB)`);
+            console.log(
+              `🎉 목표 크기 달성! (${compressedSizeMB.toFixed(
+                1
+              )}MB ≤ ${targetSizeMB}MB)`
+            );
           } else {
-            console.log(`⚠️ 목표 크기 초과 (${compressedSizeMB.toFixed(1)}MB > ${targetSizeMB}MB)`);
+            console.log(
+              `⚠️ 목표 크기 초과 (${compressedSizeMB.toFixed(
+                1
+              )}MB > ${targetSizeMB}MB)`
+            );
           }
-          
+
           resolve({
             originalSize: currentSizeMB,
             compressedSize: compressedSizeMB,
-            compressionRatio: Math.round((1 - compressedSizeMB/currentSizeMB) * 100)
+            compressionRatio: Math.round(
+              (1 - compressedSizeMB / currentSizeMB) * 100
+            ),
           });
         })
-        .on('error', (err) => {
-          console.error('❌ FFmpeg 압축 오류:', err);
+        .on("error", (err) => {
+          console.error("❌ FFmpeg 압축 오류:", err);
           reject(err);
         })
         .save(outputPath);
@@ -371,45 +388,62 @@ exports.uploadVideo = async (req, res) => {
 
     const { songTitle } = req.body;
     console.log(`🎬 비디오 파일 업로드 시작: ${req.file.originalname}`);
-    
+
     // 파일 크기 확인
     const fileStats = fs.statSync(req.file.path);
     const fileSizeMB = fileStats.size / (1024 * 1024);
     console.log(`📊 비디오 파일 크기: ${fileSizeMB.toFixed(2)} MB`);
-    
+
     // 모든 비디오 파일을 30MB 이하로 FFmpeg 압축
     console.log("🎯 FFmpeg를 사용한 30MB 이하 강제 압축 모드");
-    
+
     // 압축된 파일 저장 경로
-    const compressedFileName = `compressed_${Date.now()}_${path.basename(req.file.originalname, path.extname(req.file.originalname))}.mp4`;
-    const compressedFilePath = path.join(path.dirname(req.file.path), compressedFileName);
-    
+    const compressedFileName = `compressed_${Date.now()}_${path.basename(
+      req.file.originalname,
+      path.extname(req.file.originalname)
+    )}.mp4`;
+    const compressedFilePath = path.join(
+      path.dirname(req.file.path),
+      compressedFileName
+    );
+
     try {
       // FFmpeg로 30MB 이하로 압축
       console.log("🔄 FFmpeg 압축 시작...");
-      const compressionResult = await compressVideoTo30MB(req.file.path, compressedFilePath, 30);
-      
+      const compressionResult = await compressVideoTo30MB(
+        req.file.path,
+        compressedFilePath,
+        30
+      );
+
       // 원본 파일 삭제
       fs.unlinkSync(req.file.path);
-      
+
       // 압축된 파일을 Cloudinary에 업로드 (간단한 옵션으로)
       const uploadOptions = {
         resource_type: "video",
-        folder: "grip/video", 
+        folder: "grip/video",
         public_id: `video_${userId}_${Date.now()}`,
         timeout: 600000, // 10분 타임아웃
         use_filename: false,
         unique_filename: true,
-        format: "mp4" // 이미 FFmpeg로 압축했으므로 추가 변환 없음
+        format: "mp4", // 이미 FFmpeg로 압축했으므로 추가 변환 없음
       };
 
       console.log("☁️ 압축된 파일 Cloudinary 업로드 시작...");
-      const result = await cloudinary.uploader.upload(compressedFilePath, uploadOptions);
+      const result = await cloudinary.uploader.upload(
+        compressedFilePath,
+        uploadOptions
+      );
 
       console.log("✅ Cloudinary 업로드 성공!");
       console.log("- Public ID:", result.public_id);
       console.log("- URL:", result.secure_url);
-      console.log("- 최종 파일 크기:", Math.round(result.bytes / 1024 / 1024 * 100) / 100, "MB");
+      console.log(
+        "- 최종 파일 크기:",
+        Math.round((result.bytes / 1024 / 1024) * 100) / 100,
+        "MB"
+      );
       console.log("- 해상도:", `${result.width}x${result.height}`);
       console.log("- 포맷:", result.format);
 
@@ -428,7 +462,8 @@ exports.uploadVideo = async (req, res) => {
 
       res.status(200).json({
         success: true,
-        message: "비디오가 FFmpeg로 30MB 이하로 압축되어 성공적으로 업로드되었습니다!",
+        message:
+          "비디오가 FFmpeg로 30MB 이하로 압축되어 성공적으로 업로드되었습니다!",
         data: {
           fileId: fileRecord.id,
           videoUrl: result.secure_url,
@@ -445,10 +480,9 @@ exports.uploadVideo = async (req, res) => {
           uploadedAt: fileRecord.recordedAt,
         },
       });
-      
     } catch (compressionError) {
       console.error("FFmpeg 압축 오류:", compressionError);
-      
+
       // 압축 실패시 임시 파일들 정리
       if (fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
@@ -456,7 +490,7 @@ exports.uploadVideo = async (req, res) => {
       if (fs.existsSync(compressedFilePath)) {
         fs.unlinkSync(compressedFilePath);
       }
-      
+
       throw new Error(`비디오 압축 실패: ${compressionError.message}`);
     }
   } catch (error) {
@@ -466,22 +500,25 @@ exports.uploadVideo = async (req, res) => {
     }
 
     console.error("비디오 업로드 오류:", error);
-    
+
     // 특정 에러 메시지에 따른 처리
     let errorMessage = "비디오 업로드 중 오류가 발생했습니다.";
-    
+
     if (error.message && error.message.includes("File size too large")) {
       errorMessage = "파일 크기가 너무 큽니다. 더 작은 파일을 업로드해주세요.";
     } else if (error.message && error.message.includes("timeout")) {
-      errorMessage = "업로드 시간이 초과되었습니다. 파일 크기를 줄이거나 다시 시도해주세요.";
+      errorMessage =
+        "업로드 시간이 초과되었습니다. 파일 크기를 줄이거나 다시 시도해주세요.";
     } else if (error.message && error.message.includes("Invalid")) {
       errorMessage = "유효하지 않은 비디오 파일입니다.";
     } else if (error.message && error.message.includes("transformation")) {
-      errorMessage = "비디오 압축 중 오류가 발생했습니다. 다른 파일을 시도해주세요.";
+      errorMessage =
+        "비디오 압축 중 오류가 발생했습니다. 다른 파일을 시도해주세요.";
     } else if (error.message && error.message.includes("비디오 압축 실패")) {
       errorMessage = error.message;
     } else if (error.message && error.message.includes("FFmpeg")) {
-      errorMessage = "비디오 처리 중 오류가 발생했습니다. 지원되는 비디오 형식인지 확인해주세요.";
+      errorMessage =
+        "비디오 처리 중 오류가 발생했습니다. 지원되는 비디오 형식인지 확인해주세요.";
     }
 
     res.status(500).json({
@@ -521,8 +558,10 @@ exports.uploadLargeVideo = async (req, res) => {
     }
 
     const { songTitle } = req.body;
-    console.log(`🎬 대용량 비디오 파일 스트리밍 업로드 시작: ${req.file.originalname}`);
-    
+    console.log(
+      `🎬 대용량 비디오 파일 스트리밍 업로드 시작: ${req.file.originalname}`
+    );
+
     // 파일 크기 확인
     const fileStats = fs.statSync(req.file.path);
     const fileSizeMB = fileStats.size / (1024 * 1024);
@@ -531,7 +570,7 @@ exports.uploadLargeVideo = async (req, res) => {
     // 스트리밍 업로드 옵션
     const uploadOptions = {
       resource_type: "video",
-      folder: "grip/video", 
+      folder: "grip/video",
       public_id: `large_video_${userId}_${Date.now()}`,
       chunk_size: 6000000, // 6MB 청크
       timeout: 1200000, // 20분 타임아웃
@@ -541,20 +580,20 @@ exports.uploadLargeVideo = async (req, res) => {
       audio_codec: "aac",
       bit_rate: "800k", // 800kbps로 제한
       transformation: [
-        { 
-          width: 640, 
-          height: 360, 
+        {
+          width: 640,
+          height: 360,
           crop: "limit",
           quality: "auto:low",
           format: "mp4",
           video_codec: "h264",
-          bit_rate: "800k"
-        }
-      ]
+          bit_rate: "800k",
+        },
+      ],
     };
 
     console.log("☁️ Cloudinary 스트리밍 업로드 시작...");
-    
+
     // 스트림을 사용한 업로드
     const uploadStream = cloudinary.uploader.upload_stream(
       uploadOptions,
@@ -613,7 +652,6 @@ exports.uploadLargeVideo = async (req, res) => {
     // 파일 스트림을 업로드 스트림으로 파이프
     const fileStream = fs.createReadStream(req.file.path);
     fileStream.pipe(uploadStream);
-
   } catch (error) {
     // 임시 파일이 있으면 삭제
     if (req.file && fs.existsSync(req.file.path)) {
@@ -621,13 +659,15 @@ exports.uploadLargeVideo = async (req, res) => {
     }
 
     console.error("대용량 비디오 업로드 오류:", error);
-    
+
     let errorMessage = "대용량 비디오 업로드 중 오류가 발생했습니다.";
-    
+
     if (error.message && error.message.includes("File size too large")) {
-      errorMessage = "파일 크기가 너무 큽니다. 200MB 이하의 파일을 업로드해주세요.";
+      errorMessage =
+        "파일 크기가 너무 큽니다. 200MB 이하의 파일을 업로드해주세요.";
     } else if (error.message && error.message.includes("timeout")) {
-      errorMessage = "업로드 시간이 초과되었습니다. 파일 크기를 줄이거나 다시 시도해주세요.";
+      errorMessage =
+        "업로드 시간이 초과되었습니다. 파일 크기를 줄이거나 다시 시도해주세요.";
     }
 
     res.status(500).json({
@@ -667,22 +707,22 @@ exports.getUniqueFileTitles = async (req, res) => {
         userId,
         songTitle: { [Op.ne]: null }, // songTitle이 null이 아닌 것만
       },
-      attributes: ['songTitle', 'recordedAt'],
-      order: [['recordedAt', 'DESC']], // 최신순 정렬
+      attributes: ["songTitle", "recordedAt"],
+      order: [["recordedAt", "DESC"]], // 최신순 정렬
     });
 
     // 중복 제거를 위해 Set 사용
-    const uniqueTitles = [...new Set(files.map(file => file.songTitle))];
-    
+    const uniqueTitles = [...new Set(files.map((file) => file.songTitle))];
+
     // 제목별로 최신 날짜 정보도 함께 제공
-    const titlesWithInfo = uniqueTitles.map(title => {
-      const filesWithTitle = files.filter(file => file.songTitle === title);
+    const titlesWithInfo = uniqueTitles.map((title) => {
+      const filesWithTitle = files.filter((file) => file.songTitle === title);
       const latestFile = filesWithTitle[0]; // 이미 최신순으로 정렬되어 있음
-      
+
       return {
         title: title,
         latestRecordedAt: latestFile.recordedAt,
-        totalFiles: filesWithTitle.length
+        totalFiles: filesWithTitle.length,
       };
     });
 
@@ -694,10 +734,9 @@ exports.getUniqueFileTitles = async (req, res) => {
       data: {
         totalUniqueTitles: uniqueTitles.length,
         titles: uniqueTitles, // 간단한 제목 배열
-        detailedTitles: titlesWithInfo // 상세 정보 포함
-      }
+        detailedTitles: titlesWithInfo, // 상세 정보 포함
+      },
     });
-
   } catch (error) {
     console.error("파일 제목 리스트 조회 오류:", error);
     res.status(500).json({
@@ -745,26 +784,32 @@ exports.getFilesByTitle = async (req, res) => {
         userId,
         songTitle: title,
       },
-      order: [['recordedAt', 'DESC']],
-      attributes: ['id', 'audioUrl', 'videoUrl', 'songTitle', 'recordedAt'],
+      order: [["recordedAt", "DESC"]],
+      attributes: ["id", "audioUrl", "videoUrl", "songTitle", "recordedAt"],
     });
 
     // 음원과 영상 파일로 분류
-    const audioFiles = files.filter(file => file.audioUrl).map(file => ({
-      fileId: file.id,
-      audioUrl: file.audioUrl,
-      recordedAt: file.recordedAt,
-      date: file.recordedAt.toISOString().slice(0, 10)
-    }));
+    const audioFiles = files
+      .filter((file) => file.audioUrl)
+      .map((file) => ({
+        fileId: file.id,
+        audioUrl: file.audioUrl,
+        recordedAt: file.recordedAt,
+        date: file.recordedAt.toISOString().slice(0, 10),
+      }));
 
-    const videoFiles = files.filter(file => file.videoUrl).map(file => ({
-      fileId: file.id,
-      videoUrl: file.videoUrl,
-      recordedAt: file.recordedAt,
-      date: file.recordedAt.toISOString().slice(0, 10)
-    }));
+    const videoFiles = files
+      .filter((file) => file.videoUrl)
+      .map((file) => ({
+        fileId: file.id,
+        videoUrl: file.videoUrl,
+        recordedAt: file.recordedAt,
+        date: file.recordedAt.toISOString().slice(0, 10),
+      }));
 
-    console.log(`✅ 제목 "${title}" 파일 조회 완료: 음원 ${audioFiles.length}개, 영상 ${videoFiles.length}개`);
+    console.log(
+      `✅ 제목 "${title}" 파일 조회 완료: 음원 ${audioFiles.length}개, 영상 ${videoFiles.length}개`
+    );
 
     res.status(200).json({
       success: true,
@@ -775,10 +820,9 @@ exports.getFilesByTitle = async (req, res) => {
         audioFiles: audioFiles,
         videoFiles: videoFiles,
         audioCount: audioFiles.length,
-        videoCount: videoFiles.length
-      }
+        videoCount: videoFiles.length,
+      },
     });
-
   } catch (error) {
     console.error("제목별 파일 조회 오류:", error);
     res.status(500).json({
