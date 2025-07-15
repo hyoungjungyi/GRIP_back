@@ -227,6 +227,55 @@ router.get('/achieve/monthly',authenticateToken, practiceController.getMonthlyAc
 
 /**
  * @swagger
+ * /api/practice/monthly-status:
+ *   get:
+ *     summary: 월별 연습 상태 조회 (프론트엔드 호환)
+ *     tags: [practice]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: year
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 조회할 연도
+ *       - in: query
+ *         name: month
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 조회할 월 (1-12)
+ *     responses:
+ *       200:
+ *         description: 월별 일일 상태 배열 반환
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 year:
+ *                   type: integer
+ *                 month:
+ *                   type: integer
+ *                 daily_status:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                     enum: [success, failure, null]
+ *                     nullable: true
+ *                   description: 해당 월의 각 날짜별 달성 상태 (인덱스 0 = 1일)
+ *       400:
+ *         description: year, month 누락
+ *       401:
+ *         description: 인증 필요
+ *       500:
+ *         description: 서버 오류
+ */
+router.get('/monthly-status', authenticateToken, practiceController.getMonthlyStatus);
+
+/**
+ * @swagger
  * /api/practice/post-goal:
  *   post:
  *     summary: 연습 목표 설정

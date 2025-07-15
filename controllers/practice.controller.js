@@ -227,6 +227,55 @@ exports.checkDailyAchievement = async (req, res) => {
   }
 };
 
+// 월별 연습 상태 조회 (프론트엔드 호환)
+exports.getMonthlyStatus = async (req, res) => {
+  const { year, month } = req.query;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ message: '인증이 필요합니다.' });
+  }
+
+  if (!year || !month) {
+    return res.status(400).json({ message: 'year, month가 필요합니다.' });
+  }
+
+  try {
+    // 해당 월의 일수 계산
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const daily_status = new Array(daysInMonth).fill(null);
+
+    const start = `${year}-${String(month).padStart(2, '0')}-01`;
+    const end = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+
+    const records = await PracticeRecord.findAll({
+      where: {
+        userId: userId,
+        date: { [Op.between]: [start, end] },
+      },
+    });
+
+    // 각 날짜별로 상태 설정
+    records.forEach(record => {
+      const day = parseInt(record.date.split('-')[2]) - 1; // 0-based index
+      if (record.isAchieved === 'yes') {
+        daily_status[day] = 'success';
+      } else if (record.isAchieved === 'no') {
+        daily_status[day] = 'failure';
+      }
+    });
+
+    return res.status(200).json({
+      year: parseInt(year),
+      month: parseInt(month),
+      daily_status
+    });
+  } catch (err) {
+    console.error('월별 상태 조회 오류:', err);
+    return res.status(500).json({ message: '서버 오류' });
+  }
+};
+
 // 월별 성공/실패 날짜 반환
 exports.getMonthlyAchievements = async (req, res) => {
   const { user_id, year, month } = req.query;
