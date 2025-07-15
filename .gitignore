@@ -1,5 +1,6 @@
 .env
 node_modules/
 output/
+uploads/
 audio_env_39/
 audio_env/

@@ -3,41 +3,41 @@ const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
-const { sequelize }=require('./models');
-const { swaggerUi, specs } = require('./routes/swagger');
-
-
+const { sequelize } = require("./models");
+const { swaggerUi, specs } = require("./routes/swagger");
 
 const app = express();
-app.use(cors({
-    origin:true,
-    credentials:true,
-}));
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  })
+);
 app.use(express.json());
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 
-app.get('/swagger.json', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
+app.get("/swagger.json", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   res.send(specs);
 });
 
-const apiRouter = require('./routes');
-app.use('/api', apiRouter);
+const apiRouter = require("./routes");
+app.use("/api", apiRouter);
 
-
-const PORT=process.env.PORT || 5500;
-app.get('/', (req, res) => {
-  res.send('서버가 잘 작동 중입니다!');
+const PORT = process.env.PORT || 5500;
+app.get("/", (req, res) => {
+  res.send("서버가 잘 작동 중입니다!");
 });
 
-sequelize.sync({ force: true }) // 개발 중에는 alter:true, 배포 땐 false or migration 권장
+sequelize
+  .sync({ force: false }) // 개발 중에는 alter:true, 배포 땐 false or migration 권장
   .then(() => {
-    console.log('✅ DB 연결 및 테이블 생성 성공!');
+    console.log("✅ DB 연결 및 테이블 생성 성공!");
     console.log(`Server running at http://localhost:${PORT}`);
     console.log(`Swagger UI: http://localhost:${PORT}/api-docs`);
     console.log(`Swagger JSON: http://localhost:${PORT}/swagger.json`);
   })
-  .catch(err => console.error('❌ DB 연결 실패:', err));
+  .catch((err) => console.error("❌ DB 연결 실패:", err));
 
 //google 로그인 구현
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -76,7 +76,6 @@ app.post("/auth/google", async (req, res) => {
     res.status(401).json({ error: "Invalid ID token" });
   }
 });
-
 
 app.listen(PORT, () => {
   console.log(`✅ Server listening on http://localhost:${PORT}`);
