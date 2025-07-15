@@ -468,6 +468,11 @@ router.delete(
   songsController.removeFromSavedSongs
 );
 router.get(
+  "/saved/status/:songId",
+  authenticateToken,
+  songsController.checkSavedSongStatus
+);
+router.get(
   "/saved/:songId",
   authenticateToken,
   songsController.checkSavedSongStatus
