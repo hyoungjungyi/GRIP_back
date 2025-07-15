@@ -144,6 +144,61 @@ router.get("/sheet/:id", authenticateToken, songsController.getSheetImage);
 
 /**
  * @swagger
+ * /api/songs/{songId}:
+ *   delete:
+ *     summary: 노래 삭제 (Songs 및 SavedSongs에서 모두 삭제)
+ *     tags: [songs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: songId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 삭제할 곡 ID
+ *     responses:
+ *       200:
+ *         description: 곡 삭제 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     deletedSongId:
+ *                       type: integer
+ *                     deletedSavedCount:
+ *                       type: integer
+ *                       description: 삭제된 즐겨찾기 레코드 수
+ *                     deletedSong:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         title:
+ *                           type: string
+ *                         artist:
+ *                           type: string
+ *       400:
+ *         description: songId 누락
+ *       401:
+ *         description: 인증 필요
+ *       404:
+ *         description: 곡을 찾을 수 없음
+ *       500:
+ *         description: 서버 오류
+ */
+router.delete("/:songId", authenticateToken, songsController.deleteSong);
+
+/**
+ * @swagger
  * /api/songs/convert-youtube:
  *   post:
  *     summary: Convert YouTube video to MIDI and guitar tabs with method selection
@@ -477,5 +532,60 @@ router.get(
   authenticateToken,
   songsController.checkSavedSongStatus
 );
+
+/**
+ * @swagger
+ * /api/songs/delete/{songId}:
+ *   delete:
+ *     summary: 노래 삭제 (Songs 및 SavedSongs에서 모두 삭제)
+ *     tags: [songs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: songId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 삭제할 곡 ID
+ *     responses:
+ *       200:
+ *         description: 곡 삭제 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     deletedSongId:
+ *                       type: integer
+ *                     deletedSavedCount:
+ *                       type: integer
+ *                       description: 삭제된 즐겨찾기 레코드 수
+ *                     deletedSong:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         title:
+ *                           type: string
+ *                         artist:
+ *                           type: string
+ *       400:
+ *         description: songId 누락
+ *       401:
+ *         description: 인증 필요
+ *       404:
+ *         description: 곡을 찾을 수 없음
+ *       500:
+ *         description: 서버 오류
+ */
+router.delete("/delete/:songId", authenticateToken, songsController.deleteSong);
 
 module.exports = router;

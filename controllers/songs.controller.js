@@ -2100,3 +2100,57 @@ exports.checkSavedSongStatus = async (req, res) => {
     res.status(500).json({ message: "서버 오류가 발생했습니다." });
   }
 };
+
+// 노래 삭제 (Songs 및 SavedSongs에서 모두 삭제)
+exports.deleteSong = async (req, res) => {
+  try {
+    const { songId } = req.params;
+
+    if (!songId) {
+      return res.status(400).json({ message: "songId가 필요합니다." });
+    }
+
+    // 곡이 존재하는지 확인
+    const song = await Song.findByPk(songId);
+    if (!song) {
+      return res.status(404).json({ message: "해당 곡을 찾을 수 없습니다." });
+    }
+
+    console.log(`🗑️ 곡 삭제 시작: ID ${songId}, 제목: ${song.title}`);
+
+    // SavedSongs에서 관련 레코드 먼저 삭제
+    const deletedSavedCount = await SavedSong.destroy({
+      where: { songId: parseInt(songId) },
+    });
+
+    console.log(`✅ SavedSongs에서 ${deletedSavedCount}개 레코드 삭제`);
+
+    // Songs 테이블에서 곡 삭제
+    await Song.destroy({
+      where: { id: parseInt(songId) },
+    });
+
+    console.log(`✅ Songs에서 곡 삭제 완료: ID ${songId}`);
+
+    res.status(200).json({
+      success: true,
+      message: "곡이 성공적으로 삭제되었습니다.",
+      data: {
+        deletedSongId: parseInt(songId),
+        deletedSavedCount: deletedSavedCount,
+        deletedSong: {
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("곡 삭제 오류:", error);
+    res.status(500).json({
+      success: false,
+      message: "곡 삭제 중 오류가 발생했습니다.",
+      error: error.message,
+    });
+  }
+};
