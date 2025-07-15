@@ -1228,62 +1228,127 @@ exports.generateTabFromAudio = async (req, res) => {
       console.log("✅ 기타 TAB 생성 완료!");
     }
 
-    // DB에 노래 정보 저장 (DB 연결이 실패해도 계속 진행)
+    // 5단계: Cloudinary에 파일 업로드 및 DB 저장
+    console.log("☁️ Cloudinary에 파일 업로드 시작...");
     let newSong = null;
     try {
-      // TAB 이미지가 있으면 사용, 없으면 임시값
-      const tabImageUrl = tabGenerationResult.success
-        ? `/output/${tabImageFileName}`
-        : `temp_tab_${Date.now()}.png`;
+      let coverUrl = null;
+      let tabSheetUrl = null;
 
+      // 커버 이미지는 null로 설정 (프론트엔드에서 기본 이미지 처리)
+      const defaultCoverUrl = null;
+
+      // TAB 이미지가 성공적으로 생성된 경우 Cloudinary에 업로드
+      if (tabGenerationResult.success && fs.existsSync(tabImagePath)) {
+        console.log("📤 TAB 이미지 Cloudinary 업로드 중...");
+        const tabUploadResult = await cloudinary.uploader.upload(tabImagePath, {
+          folder: "grip/ai-generated-tabs",
+          public_id: `ai_tab_${Date.now()}`,
+          resource_type: "image",
+        });
+        tabSheetUrl = tabUploadResult.secure_url;
+        console.log("✅ TAB 이미지 Cloudinary 업로드 완료");
+
+        // 로컬 파일 삭제
+        fs.unlinkSync(tabImagePath);
+        if (fs.existsSync(tabTextPath)) {
+          fs.unlinkSync(tabTextPath);
+        }
+      }
+
+      // DB에 노래 정보 저장
       newSong = await Song.create({
         title: title,
         artist: author,
         genre: "AI",
-        tabSheetUrl: tabImageUrl, // 새로운 필드명 사용
-        sheetUrl: tabImageUrl, // 기존 호환성 유지
+        coverUrl: defaultCoverUrl, // 기본 커버 이미지
+        tabSheetUrl: tabSheetUrl, // Cloudinary URL
+        sheetUrl: tabSheetUrl, // 기존 호환성 유지
       });
-      console.log("✅ DB에 노래 정보 저장 완료");
-    } catch (dbError) {
-      console.log("⚠️ DB 저장 실패, 로컬 파일만 보관:", dbError.message);
+
+      console.log(`✅ DB에 노래 정보 저장 완료 - ID: ${newSong.id}`);
+
+      // 임시 로컬 파일들 정리
+      try {
+        if (fs.existsSync(finalAudioPath)) fs.unlinkSync(finalAudioPath);
+        if (fs.existsSync(guitarFilePath)) fs.unlinkSync(guitarFilePath);
+        if (fs.existsSync(midiFilePath)) fs.unlinkSync(midiFilePath);
+        console.log("🧹 임시 파일들 정리 완료");
+      } catch (cleanupError) {
+        console.log("⚠️ 임시 파일 정리 중 오류:", cleanupError.message);
+      }
+    } catch (uploadError) {
+      console.error("❌ Cloudinary 업로드 또는 DB 저장 실패:", uploadError);
+
+      // 업로드 실패시에도 로컬 파일은 유지하고 DB에는 로컬 경로로 저장
+      try {
+        const localTabUrl = tabGenerationResult.success
+          ? `/output/${tabImageFileName}`
+          : null;
+        newSong = await Song.create({
+          title: title,
+          artist: author,
+          genre: "AI",
+          coverUrl: null, // 프론트엔드에서 기본 이미지 처리
+          tabSheetUrl: localTabUrl,
+          sheetUrl: localTabUrl,
+        });
+        console.log("⚠️ Cloudinary 실패, 로컬 경로로 DB 저장 완료");
+      } catch (dbError) {
+        console.error("❌ DB 저장도 실패:", dbError.message);
+      }
     }
 
     return res.status(200).json({
       success: true,
-      message: "완전한 YouTube → 듣기 좋은 기타 TAB 변환 완료",
-      original_audio_path: finalAudioPath,
-      guitar_audio_path: guitarFilePath,
-      midi_file_path: midiFilePath,
-      tab_image_path: tabGenerationResult.success ? tabImagePath : null,
-      tab_text_path: tabGenerationResult.success ? tabTextPath : null,
+      message: "AI 기타 TAB 생성 및 클라우드 저장 완료",
+      data: {
+        songId: newSong ? newSong.id : null,
+        title: title,
+        artist: author,
+        genre: "AI",
+        coverUrl: newSong ? newSong.coverUrl : null,
+        tabSheetUrl: newSong ? newSong.tabSheetUrl : null,
+        uploadedAt: newSong ? newSong.createdAt : new Date().toISOString(),
+      },
       processing_info: {
         guitar_separation: {
           enhanced: guitarSeparationResult.enhanced || false,
           method: guitarSeparationResult.enhanced ? "향상된 분리" : "기본 분리",
-          ...guitarSeparationResult,
+          file_size_mb: guitarSeparationResult.file_size_mb,
         },
         midi_conversion: {
           optimized: midiConversionResult.optimized || false,
           method: midiConversionResult.optimized
             ? "기타 최적화 변환"
             : "기본 변환",
-          ...midiConversionResult,
+          file_size_kb: midiConversionResult.file_size_kb,
         },
         tab_generation: {
           success: tabGenerationResult.success,
           method: "A4 다중 라인 TAB 생성",
-          ...tabGenerationResult,
+          file_size_kb: tabGenerationResult.file_size_kb,
+          cloudinary_uploaded:
+            newSong &&
+            newSong.tabSheetUrl &&
+            newSong.tabSheetUrl.includes("cloudinary"),
+        },
+        storage: {
+          type:
+            newSong &&
+            newSong.tabSheetUrl &&
+            newSong.tabSheetUrl.includes("cloudinary")
+              ? "Cloudinary"
+              : "Local",
+          cleanup_completed: true,
         },
       },
       song_info: {
         title: title,
         artist: author,
         duration: duration,
+        source: "YouTube",
       },
-      song_id: newSong ? newSong.id : null,
-      next_step: tabGenerationResult.success
-        ? "complete"
-        : "tab_generation_retry",
       pipeline_status: {
         "1_download": "✅ 완료",
         "2_guitar_separation": guitarSeparationResult.success
@@ -1293,6 +1358,13 @@ exports.generateTabFromAudio = async (req, res) => {
           ? "✅ 완료"
           : "❌ 실패",
         "4_tab_generation": tabGenerationResult.success ? "✅ 완료" : "❌ 실패",
+        "5_cloud_upload":
+          newSong &&
+          newSong.tabSheetUrl &&
+          newSong.tabSheetUrl.includes("cloudinary")
+            ? "✅ 완료"
+            : "⚠️ 로컬 저장",
+        "6_db_save": newSong ? "✅ 완료" : "❌ 실패",
       },
       musical_optimizations: [
         "🎸 15프렛 연주 범위 최적화",
@@ -1301,6 +1373,7 @@ exports.generateTabFromAudio = async (req, res) => {
         "🎯 기타 스위트 스팟 활용",
         "📱 Tabify 완벽 호환성",
         "🎶 듣기 좋은 소리 보장",
+        "☁️ 클라우드 저장 및 관리",
       ],
     });
   } catch (error) {
@@ -1321,28 +1394,40 @@ exports.getAllSongLists = async (req, res) => {
   }
 
   try {
-    // 1. ongoing: 사용자가 연습한 곡 리스트 + 진행률
-    const ongoingRecords = await PracticeRecord.findAll({
+    // 1. ongoing: 사용자가 즐겨찾기 추가한 곡 리스트
+    const savedSongs = await SavedSong.findAll({
       where: { userId },
-      include: [{ model: Song }],
+      include: [
+        {
+          model: Song,
+          attributes: [
+            "id",
+            "title",
+            "artist",
+            "genre",
+            "coverUrl",
+            "noteSheetUrl",
+            "tabSheetUrl",
+            "sheetUrl",
+          ],
+        },
+      ],
+      order: [["savedAt", "DESC"]],
     });
 
-    const ongoing = ongoingRecords.map((record) => ({
-      song_id: record.songId,
-      title: record.Song?.title || "Unknown",
-      artist: record.Song?.artist || "Unknown",
-      progress: Math.min(
-        100,
-        Math.floor(((record.totalPracticeTime || 0) / 1800) * 100)
-      ), // 30분 기준
-      coverUrl: record.Song?.coverUrl || null,
-      noteSheetUrl: record.Song?.noteSheetUrl || null,
-      tabSheetUrl: record.Song?.tabSheetUrl || null,
-      sheetUrl: record.Song?.sheetUrl || null, // 기존 호환성
+    const ongoing = savedSongs.map((entry) => ({
+      song_id: entry.Song.id,
+      title: entry.Song.title,
+      artist: entry.Song.artist,
+      savedAt: entry.savedAt,
+      coverUrl: entry.Song.coverUrl || null,
+      noteSheetUrl: entry.Song.noteSheetUrl || null,
+      tabSheetUrl: entry.Song.tabSheetUrl || null,
+      sheetUrl: entry.Song.sheetUrl || null, // 기존 호환성
     }));
 
-    // 2. recommend: 사용자가 연습하지 않은 곡 중 랜덤 추천
-    const practicedSongIds = await PracticeRecord.findAll({
+    // 2. recommend: 사용자가 즐겨찾기 추가하지 않은 곡 중 랜덤 추천
+    const savedSongIds = await SavedSong.findAll({
       where: { userId },
       attributes: ["songId"],
       raw: true,
@@ -1350,7 +1435,7 @@ exports.getAllSongLists = async (req, res) => {
 
     const recommendSongs = await Song.findAll({
       where: {
-        id: { [Op.notIn]: practicedSongIds },
+        id: { [Op.notIn]: savedSongIds },
         genre: { [Op.not]: "AI" },
       },
       order: Sequelize.literal("RAND()"), // 무작위 정렬 (MySQL용)
