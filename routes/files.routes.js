@@ -1,7 +1,7 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const filesController = require('../controllers/files.controller');
-const authenticateToken = require('../middlewares/authMiddleware');
+const filesController = require("../controllers/files.controller");
+const authenticateToken = require("../middlewares/authMiddleware");
 /**
  * @swagger
  * /api/files/videos:
@@ -35,7 +35,7 @@ const authenticateToken = require('../middlewares/authMiddleware');
  *       500:
  *         description: 서버 오류
  */
-router.get('/videos', authenticateToken,filesController.getVideoFiles);
+router.get("/videos", authenticateToken, filesController.getVideoFiles);
 /**
  * @swagger
  * /api/files/by-song:
@@ -77,7 +77,7 @@ router.get('/videos', authenticateToken,filesController.getVideoFiles);
  *         description: 서버 오류
  */
 
-router.get('/by-song', authenticateToken,filesController.getFilesBySong);
+router.get("/by-song", authenticateToken, filesController.getFilesBySong);
 
 /**
  * @swagger
@@ -135,16 +135,27 @@ router.get('/by-song', authenticateToken,filesController.getFilesBySong);
  *       500:
  *         description: 서버 오류
  */
-router.post('/upload-audio', authenticateToken, filesController.uploadMiddleware.single('audio'), filesController.uploadAudio);
+router.post(
+  "/upload-audio",
+  authenticateToken,
+  filesController.uploadMiddleware.single("audio"),
+  filesController.uploadAudio
+);
 
 /**
  * @swagger
  * /api/files/upload-video:
  *   post:
- *     summary: 비디오 파일을 Cloudinary에 업로드
+ *     summary: 스마트 비디오 파일 업로드 (크기별 자동 최적화)
  *     tags: [files]
  *     security:
  *       - bearerAuth: []
+ *     description: |
+ *       파일 크기에 따라 자동으로 최적화된 업로드 방식을 선택합니다:
+ *       - 50MB 이하: 고품질 (1080p)
+ *       - 50-100MB: 중간 품질 (720p)
+ *       - 100-150MB: 고압축 (480p)
+ *       - 150MB 이상: 스트리밍 업로드 (360p)
  *     requestBody:
  *       required: true
  *       content:
@@ -157,7 +168,7 @@ router.post('/upload-audio', authenticateToken, filesController.uploadMiddleware
  *               video:
  *                 type: string
  *                 format: binary
- *                 description: 업로드할 비디오 파일 (100MB 이하 권장)
+ *                 description: 업로드할 비디오 파일 (최대 200MB)
  *               songTitle:
  *                 type: string
  *                 description: 곡 제목
@@ -192,6 +203,12 @@ router.post('/upload-audio', authenticateToken, filesController.uploadMiddleware
  *                       type: integer
  *                     fileSize:
  *                       type: integer
+ *                     originalSize:
+ *                       type: string
+ *                       description: 원본 파일 크기 (예- "120.5MB")
+ *                     uploadMethod:
+ *                       type: string
+ *                       description: 사용된 업로드 방식 (예- "표준", "압축", "고압축", "스트리밍")
  *       400:
  *         description: 파일이 누락되거나 잘못된 형식
  *       401:
@@ -199,17 +216,25 @@ router.post('/upload-audio', authenticateToken, filesController.uploadMiddleware
  *       500:
  *         description: 서버 오류
  */
-router.post('/upload-video', authenticateToken, filesController.uploadMiddleware.single('video'), filesController.uploadVideo);
+router.post(
+  "/upload-video",
+  authenticateToken,
+  filesController.uploadMiddleware.single("video"),
+  filesController.uploadVideo
+);
 
 /**
  * @swagger
  * /api/files/upload-large-video:
  *   post:
- *     summary: 대용량 비디오 파일을 Cloudinary에 스트리밍 업로드
+ *     summary: 대용량 비디오 직접 스트리밍 업로드 (수동 선택용)
  *     tags: [files]
  *     security:
  *       - bearerAuth: []
- *     description: 100MB 이상의 대용량 비디오 파일을 위한 스트리밍 업로드. 자동으로 압축되어 품질이 낮아집니다.
+ *     description: |
+ *       ⚠️ 일반적으로는 /upload-video 엔드포인트를 사용하세요.
+ *       이 엔드포인트는 특별히 대용량 파일을 강제로 스트리밍 업로드하고 싶을 때만 사용합니다.
+ *       /upload-video 엔드포인트가 자동으로 최적화된 업로드 방식을 선택합니다.
  *     requestBody:
  *       required: true
  *       content:
@@ -264,7 +289,12 @@ router.post('/upload-video', authenticateToken, filesController.uploadMiddleware
  *       500:
  *         description: 서버 오류
  */
-router.post('/upload-large-video', authenticateToken, filesController.uploadMiddleware.single('video'), filesController.uploadLargeVideo);
+router.post(
+  "/upload-large-video",
+  authenticateToken,
+  filesController.uploadMiddleware.single("video"),
+  filesController.uploadLargeVideo
+);
 
 /**
  * @swagger
@@ -314,7 +344,7 @@ router.post('/upload-large-video', authenticateToken, filesController.uploadMidd
  *       500:
  *         description: 서버 오류
  */
-router.get('/titles', authenticateToken, filesController.getUniqueFileTitles);
+router.get("/titles", authenticateToken, filesController.getUniqueFileTitles);
 
 /**
  * @swagger
@@ -389,6 +419,6 @@ router.get('/titles', authenticateToken, filesController.getUniqueFileTitles);
  *       500:
  *         description: 서버 오류
  */
-router.get('/by-title', authenticateToken, filesController.getFilesByTitle);
+router.get("/by-title", authenticateToken, filesController.getFilesByTitle);
 
 module.exports = router;
