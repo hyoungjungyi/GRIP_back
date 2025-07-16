@@ -36,7 +36,7 @@ const sheetUpload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB 제한
   },
   fileFilter: function (req, file, cb) {
-    // 이미지 파일만 허용 (SVG 포함)
+    // 이미지 파일만 허용 (SVG, AVIF 포함)
     const allowedMimes = [
       "image/jpeg",
       "image/jpg",
@@ -44,6 +44,7 @@ const sheetUpload = multer({
       "image/webp",
       "image/gif",
       "image/svg+xml", // SVG 지원 추가
+      "image/avif", // AVIF 지원 추가
     ];
 
     const allowedExtensions = [
@@ -53,6 +54,7 @@ const sheetUpload = multer({
       ".webp",
       ".gif",
       ".svg",
+      ".avif", // AVIF 확장자 추가
     ];
     const fileExtension = path.extname(file.originalname).toLowerCase();
 
@@ -1439,7 +1441,6 @@ exports.getAllSongLists = async (req, res) => {
         genre: { [Op.not]: "AI" },
       },
       order: Sequelize.literal("RAND()"), // 무작위 정렬 (MySQL용)
-      limit: 3,
     });
 
     const recommend = recommendSongs.map((song) => ({
