@@ -77,6 +77,8 @@ app.post("/auth/google", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server listening on http://localhost:${PORT}`);
+  console.log(`🐳 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📚 Swagger UI: http://localhost:${PORT}/api-docs`);
 });
