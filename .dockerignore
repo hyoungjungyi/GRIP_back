@@ -1,16 +1,30 @@
-node_modules
+# Node 관련
+node_modules/
 npm-debug.log
-.git
+*.log
+
+# Git 관련
+.git/
 .gitignore
+
+# 문서 및 설정
 README.md
 .env
-.nyc_output
-coverage
 .DS_Store
-*.log
-temp/*
-uploads/*
-output/*
-.railway
-audio_env_39
-.vscode
+.vscode/
+
+# 테스트 및 커버리지
+.nyc_output/
+coverage/
+
+# 임시 데이터 및 출력 파일
+temp/
+uploads/
+output/
+
+# Railway 관련
+.railway/
+
+# Python 가상환경
+audio_env_39/
+audio_env/
