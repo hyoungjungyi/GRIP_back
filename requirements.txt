@@ -10,7 +10,7 @@ pretty_midi==0.2.9
 
 # Machine Learning for audio separation (Python 3.9 호환)
 spleeter==2.4.2
-tensorflow==2.9.3
+tensorflow==2.12.1
 
 # Image processing
 matplotlib==3.5.3
